@@ -15,7 +15,7 @@ namespace LoRaWan.NetworkServer
         const int PORT = 1680;
         int retryCount = 0;
 
-        string connectionString;
+        string connectionString = "HostName=testiotmikou.azure-devices.net;SharedAccessKeyName=iothubowner;SharedAccessKey=h2XcVzgOtQqAQgRA8pV6fUoGHIh9O2vFdfSsqzYD8b0=";
         bool udpListenerRunning = false;
         UdpClient udpClient = null;
         DeviceClient ioTHubModuleClient = null;
@@ -112,7 +112,7 @@ namespace LoRaWan.NetworkServer
             catch(Exception ex)
             {
                 Console.WriteLine($"Initialization failed with error: {ex.Message}.\nWaiting for update desired property 'connstr'.");
-                connectionString = null;
+                //connectionString = null;
             }
         }
 
