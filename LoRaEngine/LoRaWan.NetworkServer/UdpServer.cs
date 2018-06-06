@@ -3,6 +3,7 @@ using Microsoft.Azure.Devices.Client.Transport.Mqtt;
 using Microsoft.Azure.Devices.Shared;
 using Newtonsoft.Json;
 using System;
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -17,16 +18,21 @@ namespace LoRaWan.NetworkServer
 
         string connectionString = "HostName=testiotmikou.azure-devices.net;SharedAccessKeyName=iothubowner;SharedAccessKey=h2XcVzgOtQqAQgRA8pV6fUoGHIh9O2vFdfSsqzYD8b0=";
         bool udpListenerRunning = false;
-        UdpClient udpClient = null;
+        static UdpClient udpClient = null;
+   
         DeviceClient ioTHubModuleClient = null;
         MessageProcessor messageProcessor = null;
         bool exit = false;
+
+
+        private static IPAddress remoteLoRaAggregatorIp;
+        private static int remoteLoRaAggregatorPort;
 
         public async Task RunServer(bool bypassCertVerification)
         {
             await InitCallBack(bypassCertVerification);
 
-            if(!string.IsNullOrEmpty(connectionString))
+            if (!string.IsNullOrEmpty(connectionString))
             {
                 _ = RunUdpListener();
             }
@@ -41,10 +47,17 @@ namespace LoRaWan.NetworkServer
             }
         }
 
+        public static async Task SendMessage(byte[] messageToSend)
+        {
+
+
+            if(messageToSend.Length!=0)
+                await udpClient.SendAsync(messageToSend, messageToSend.Length,remoteLoRaAggregatorIp.ToString(), remoteLoRaAggregatorPort);
+
+        }
+
         async Task RunUdpListener()
         {
-            while (true) //Continious restart logic...
-            {
                 try
                 {
                     Console.WriteLine($"#{++retryCount} attempt to start UDP Listener...");
@@ -59,17 +72,25 @@ namespace LoRaWan.NetworkServer
                     {
                         UdpReceiveResult receivedResults = await udpClient.ReceiveAsync();
                         Console.WriteLine($"UDP message received ({receivedResults.Buffer.Length} bytes).");
+
+                        //connection
+                        if (remoteLoRaAggregatorIp == null)
+                        {
+                            remoteLoRaAggregatorIp = receivedResults.RemoteEndPoint.Address;
+                            remoteLoRaAggregatorPort = receivedResults.RemoteEndPoint.Port;
+                
+                        }
+
                         messageProcessor = new MessageProcessor();
-                        await messageProcessor.processMessage(receivedResults.Buffer, connectionString);
+                       await messageProcessor.processMessage(receivedResults.Buffer, connectionString);
                     }
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"Failed to start UDP Listener on port {PORT}: {ex.Message}");
                 }
-
-                Task.Delay(5000).Wait();
-            }
+            
+            
         }
 
         async Task InitCallBack(bool bypassCertVerification)
@@ -109,7 +130,7 @@ namespace LoRaWan.NetworkServer
                 // Attach callback for Twin desired properties updates
                 await ioTHubModuleClient.SetDesiredPropertyUpdateCallbackAsync(onDesiredPropertiesUpdate, null);
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 Console.WriteLine($"Initialization failed with error: {ex.Message}.\nWaiting for update desired property 'connstr'.");
                 //connectionString = null;
@@ -129,7 +150,7 @@ namespace LoRaWan.NetworkServer
                 string connectionStringFromModule = Environment.GetEnvironmentVariable("EdgeHubConnectionString");
                 constructConnectionStringMask(connectionStringFromModule, connectionStringFromTwin);
 
-                if(!udpListenerRunning)
+                if (!udpListenerRunning)
                 {
                     _ = RunUdpListener();
                 }
@@ -161,7 +182,7 @@ namespace LoRaWan.NetworkServer
 
             string getVal(string key, string connStr)
             {
-                if(string.IsNullOrEmpty(key))
+                if (string.IsNullOrEmpty(key))
                 {
                     throw new Exception($"Key cannot be null");
                 }
@@ -197,29 +218,26 @@ namespace LoRaWan.NetworkServer
 
         public void Dispose()
         {
-            if(udpClient != null)
+            if (udpClient != null)
             {
-                if(udpClient.Client != null && udpClient.Client.Connected)
+                if (udpClient.Client != null && udpClient.Client.Connected)
                 {
                     try { udpClient.Client.Disconnect(false); } catch (Exception ex) { Console.WriteLine($"Udp Client socket disconnecting error: {ex.Message}"); }
                     try { udpClient.Client.Close(); } catch (Exception ex) { Console.WriteLine($"Udp Client socket closing error: {ex.Message}"); }
                     try { udpClient.Client.Dispose(); } catch (Exception ex) { Console.WriteLine($"Udp Client socket disposing error: {ex.Message}"); }
                 }
-
                 try { udpClient.Close(); } catch (Exception ex) { Console.WriteLine($"Udp Client closing error: {ex.Message}"); }
                 try { udpClient.Dispose(); } catch (Exception ex) { Console.WriteLine($"Udp Client disposing error: {ex.Message}"); }
             }
-
-            if(ioTHubModuleClient != null)
+            if (ioTHubModuleClient != null)
             {
                 try { ioTHubModuleClient.CloseAsync().Wait(); } catch (Exception ex) { Console.WriteLine($"IoTHub Module Client closing error: {ex.Message}"); }
                 try { ioTHubModuleClient.Dispose(); } catch (Exception ex) { Console.WriteLine($"IoTHub Module Client disposing error: {ex.Message}"); }
             }
-
-            if(messageProcessor != null)
+            if (messageProcessor != null)
             {
                 try { messageProcessor.Dispose(); } catch (Exception ex) { Console.WriteLine($"Message Processor disposing error: {ex.Message}"); }
-            }
+            }   
         }
     }
 }
