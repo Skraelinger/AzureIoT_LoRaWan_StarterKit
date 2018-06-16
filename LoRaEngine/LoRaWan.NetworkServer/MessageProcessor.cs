@@ -18,54 +18,56 @@ namespace LoRaWan.NetworkServer
         {
             LoRaMessage loraMessage = new LoRaMessage(message);
 
-            if(!loraMessage.lorametadata.processed)
+            if (!loraMessage.processed)
             {
-                Console.WriteLine($"Skip message from device: {loraMessage.lorametadata.devAddr}. Reason: Prcessed attribyte eq 'False'");
-                return;
-            }
+                Console.WriteLine($"Skip message Reason: Processed attribyte eq 'False'");
 
-            Console.WriteLine($"Processing message from device: {loraMessage.lorametadata.devAddr}");
-
-            Shared.loraKeysList.TryGetValue(loraMessage.lorametadata.devAddr, out LoraKeys loraKeys);
-
-            if (loraMessage.CheckMic(testKey))
-            {
-                string decryptedMessage = null;
-                try
-                {
-                    decryptedMessage = loraMessage.DecryptPayload(testKey);
-                }
-                catch(Exception ex)
-                {
-                    Console.WriteLine($"Failed to decrypt message: {ex.Message}");
-                }
-
-                if(string.IsNullOrEmpty(decryptedMessage))
-                {
-                    return;
-                }
-
-                Console.WriteLine($"Sending message '{decryptedMessage}' to hub...");
-
-                int hubSendCounter = 1;
-                while (HubRetryCount != hubSendCounter)
-                {
-                    try
-                    {
-                        sender = new IoTHubSender(connectionString, testDeviceId);
-                        await sender.sendMessage(decryptedMessage);
-                        hubSendCounter = HubRetryCount;
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Failed to send message: {ex.Message}");
-                        hubSendCounter++;
-                    }
-                }
             }
             else
             {
-                Console.WriteLine("Check MIC failed! Message will be ignored...");
+                Console.WriteLine($"Processing message from device: {BitConverter.ToString(loraMessage.payloadMessage.devAddr)}");
+
+                Shared.loraKeysList.TryGetValue(BitConverter.ToString(loraMessage.payloadMessage.devAddr), out LoraKeys loraKeys);
+
+                if (loraMessage.CheckMic(testKey))
+                {
+                    string decryptedMessage = null;
+                    try
+                    {
+                        decryptedMessage = loraMessage.DecryptPayload(testKey);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Failed to decrypt message: {ex.Message}");
+                    }
+
+                    if (string.IsNullOrEmpty(decryptedMessage))
+                    {
+                        return;
+                    }
+
+                    Console.WriteLine($"Sending message '{decryptedMessage}' to hub...");
+
+                    int hubSendCounter = 1;
+                    while (HubRetryCount != hubSendCounter)
+                    {
+                        try
+                        {
+                            sender = new IoTHubSender(connectionString, testDeviceId);
+                            await sender.sendMessage(decryptedMessage);
+                            hubSendCounter = HubRetryCount;
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Failed to send message: {ex.Message}");
+                            hubSendCounter++;
+                        }
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("Check MIC failed! Message will be ignored...");
+                }
             }
         }
 
