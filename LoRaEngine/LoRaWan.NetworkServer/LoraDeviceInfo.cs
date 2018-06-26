@@ -14,8 +14,8 @@ namespace LoRaWan.NetworkServer
         public string NwkSKey;
         public string AppSKey;
         public string PrimaryKey;
-        public string AppNounce;
-        public string DevNounce;
+        public string AppNonce;
+        public string DevNonce;
         public string NetId;
         public bool IsOurDevice = false;
         public bool IsJoinValid = false;

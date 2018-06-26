@@ -200,9 +200,9 @@ namespace LoRaWan.NetworkServer
             Array.Reverse(joinReq.appEUI);
 
             string devEui = BitConverter.ToString(joinReq.devEUI).Replace("-", "");
-            string devNounce = BitConverter.ToString(joinReq.devNonce).Replace("-", "");
+            string devNonce = BitConverter.ToString(joinReq.devNonce).Replace("-", "");
 
-            //checking if this devnounce was already processed or the deveui was already refused
+            //checking if this devnonce was already processed or the deveui was already refused
             Shared.loraJoinRequestList.TryGetValue(devEui, out joinLoraDeviceInfo);
 
 
@@ -219,10 +219,10 @@ namespace LoRaWan.NetworkServer
                 //is our device but the join was not valid
                 else if (!joinLoraDeviceInfo.IsJoinValid)
                 {
-                    //if the devNounce is equal to the current it is a potential replay attck
-                    if (joinLoraDeviceInfo.DevNounce == devNounce)
+                    //if the devNonce is equal to the current it is a potential replay attck
+                    if (joinLoraDeviceInfo.DevNonce == devNonce)
                     {
-                        Console.WriteLine("Join Request refused devNounce already used");
+                        Console.WriteLine("Join Request refused devNonce already used");
                         return null;
                     }
                 }
@@ -231,12 +231,12 @@ namespace LoRaWan.NetworkServer
 
             
 
-            joinLoraDeviceInfo = await LoraDeviceInfoManager.PerformOTAAAsync(devEui, BitConverter.ToString(joinReq.appEUI).Replace("-", ""), devNounce);
+            joinLoraDeviceInfo = await LoraDeviceInfoManager.PerformOTAAAsync(devEui, BitConverter.ToString(joinReq.appEUI).Replace("-", ""), devNonce);
 
             if (joinLoraDeviceInfo.IsJoinValid)
             {
 
-                byte[] appNonce = StringToByteArray(joinLoraDeviceInfo.AppNounce);
+                byte[] appNonce = StringToByteArray(joinLoraDeviceInfo.AppNonce);
 
                 byte[] netId = StringToByteArray(joinLoraDeviceInfo.NetId);
 

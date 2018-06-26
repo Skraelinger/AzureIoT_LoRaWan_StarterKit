@@ -22,8 +22,8 @@ namespace LoraKeysManagerFacade
         public string NwkSKey;
         public string AppSKey;
         public string PrimaryKey;
-        public string AppNounce;
-        public string DevNounce;
+        public string AppNonce;
+        public string DevNonce;
         public string NetId;
         public bool IsOurDevice = false;
         public bool IsJoinValid = false;
@@ -140,8 +140,8 @@ namespace LoraKeysManagerFacade
             string AppSKey;
             string NwkSKey;
             string DevAddr;
-            string DevNounce;
-            string AppNounce;
+            string DevNonce;
+            string AppNonce;
 
 
             log.Info("Function call started");
@@ -164,11 +164,11 @@ namespace LoraKeysManagerFacade
                 return new BadRequestObjectResult(errorMsg);
             }
 
-            DevNounce = req.Query["devNounce"];
+            DevNonce = req.Query["devNonce"];
 
-            if (DevNounce == null)
+            if (DevNonce == null)
             {
-                string errorMsg = "Missing devNounce in querystring";
+                string errorMsg = "Missing devNonce in querystring";
                 log.Info(errorMsg);
                 return new BadRequestObjectResult(errorMsg);
             }
@@ -236,13 +236,13 @@ namespace LoraKeysManagerFacade
                     }
 
                     //Make sure that is a new request and not a replay
-                    if (twin.Tags.Contains("DevNounce"))
+                    if (twin.Tags.Contains("DevNonce"))
                     {
-                        if (twin.Tags["DevNounce"] == DevNounce)
+                        if (twin.Tags["DevNonce"] == DevNonce)
                         {
-                            string errorMsg = $"DevNounce already used for device {devEUI}";
+                            string errorMsg = $"DevNonce already used for device {devEUI}";
                             log.Info(errorMsg);
-                            loraDeviceInfo.DevAddr = DevNounce;                
+                            loraDeviceInfo.DevAddr = DevNonce;                
                             loraDeviceInfo.IsJoinValid = false;
                             json = JsonConvert.SerializeObject(loraDeviceInfo);
                             return (ActionResult)new OkObjectResult(json);
@@ -253,10 +253,10 @@ namespace LoraKeysManagerFacade
                 
                     byte[] netId = new byte[3] { 0, 0, 1 };
 
-                    AppNounce = OTAAKeysGenerator.getAppNonce();
+                    AppNonce = OTAAKeysGenerator.getAppNonce();
 
-                    AppSKey = OTAAKeysGenerator.calculateKey( new byte[1]{ 0x02 }, OTAAKeysGenerator.StringToByteArray(AppNounce), netId, OTAAKeysGenerator.StringToByteArray(DevNounce), OTAAKeysGenerator.StringToByteArray(AppKey));
-                    NwkSKey = OTAAKeysGenerator.calculateKey(new byte[1] { 0x01 }, OTAAKeysGenerator.StringToByteArray(AppNounce), netId, OTAAKeysGenerator.StringToByteArray(DevNounce), OTAAKeysGenerator.StringToByteArray(AppKey)); ;
+                    AppSKey = OTAAKeysGenerator.calculateKey( new byte[1]{ 0x02 }, OTAAKeysGenerator.StringToByteArray(AppNonce), netId, OTAAKeysGenerator.StringToByteArray(DevNonce), OTAAKeysGenerator.StringToByteArray(AppKey));
+                    NwkSKey = OTAAKeysGenerator.calculateKey(new byte[1] { 0x01 }, OTAAKeysGenerator.StringToByteArray(AppNonce), netId, OTAAKeysGenerator.StringToByteArray(DevNonce), OTAAKeysGenerator.StringToByteArray(AppKey)); ;
 
                    
                     
@@ -294,7 +294,7 @@ namespace LoraKeysManagerFacade
                             AppSKey,
                             NwkSKey,
                             DevAddr,
-                            DevNounce
+                            DevNonce
 
                         }
                     };
@@ -305,7 +305,7 @@ namespace LoraKeysManagerFacade
                     loraDeviceInfo.AppKey = twin.Tags["AppKey"].Value;
                     loraDeviceInfo.NwkSKey = NwkSKey;
                     loraDeviceInfo.AppSKey = AppSKey;
-                    loraDeviceInfo.AppNounce = AppNounce;
+                    loraDeviceInfo.AppNonce = AppNonce;
                     loraDeviceInfo.NetId = BitConverter.ToString(netId).Replace("-", ""); ;
 
                     if (!returnAppSKey)
