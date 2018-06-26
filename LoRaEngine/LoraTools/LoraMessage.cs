@@ -77,6 +77,7 @@ namespace PacketManager
                 identifier = type;
                 message = new byte[_message.Length];
                 Array.Copy(_message, 0, message, 0, _message.Length);
+            
             }
 
         }
@@ -413,7 +414,6 @@ namespace PacketManager
         /// get message direction
         /// </summary>
         public int direction;
-        public bool processed;
 
 
         /// <param name="inputMessage"></param>
@@ -424,12 +424,7 @@ namespace PacketManager
             var checkDir = (mhdr[0] >> 5);
             //in this case the payload is not downlink of our type
 
-            if (checkDir != 2)
-            {
-                processed = false;
-                return;
-            }
-            processed = true;
+     
             direction = (mhdr[0] & (1 << 6 - 1));
 
             //get the address
@@ -468,7 +463,7 @@ namespace PacketManager
 
         }
 
-        public LoRaPayloadStandardData(byte[] _mhdr,byte[] _devAddr,byte[] _fctrl,byte[] _fcnt,byte [] _fOpts, byte [] _fPort ,byte [] _frmPayload) : base()
+        public LoRaPayloadStandardData(byte[] _mhdr,byte[] _devAddr,byte[] _fctrl,byte[] _fcnt,byte [] _fOpts, byte [] _fPort ,byte [] _frmPayload,int _direction) : base()
         {
             mhdr = _mhdr;
             Array.Reverse(_devAddr);
@@ -478,8 +473,9 @@ namespace PacketManager
             fopts = _fOpts;
             fport = _fPort;
             frmpayload = _frmPayload;
-            Array.Reverse(frmpayload);
-            direction=0;
+            if(frmpayload!=null)
+                Array.Reverse(frmpayload);
+            direction=_direction;
         }
 
         /// <summary>
@@ -523,43 +519,47 @@ namespace PacketManager
         /// </summary>
         public override string PerformEncryption(string appSkey)
         {
-            AesEngine aesEngine = new AesEngine();
-            byte[] tmp = StringToByteArray(appSkey);
-          
-            aesEngine.Init(true, new KeyParameter(tmp));
+            if (frmpayload != null)
+            {
+                AesEngine aesEngine = new AesEngine();
+                byte[] tmp = StringToByteArray(appSkey);
 
-            byte[] aBlock = { 0x01, 0x00, 0x00, 0x00, 0x00, (byte)direction, (byte)(devAddr[3]), (byte)(devAddr[2]), (byte)(devAddr[1]),
+                aesEngine.Init(true, new KeyParameter(tmp));
+
+                byte[] aBlock = { 0x01, 0x00, 0x00, 0x00, 0x00, (byte)direction, (byte)(devAddr[3]), (byte)(devAddr[2]), (byte)(devAddr[1]),
                 (byte)(devAddr[0]),(byte)(fcnt[0]),(byte)(fcnt[1]),  0x00 , 0x00, 0x00, 0x00 };
 
-            byte[] sBlock = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-            int size = frmpayload.Length;
-            byte[] decrypted = new byte[size];
-            byte bufferIndex = 0;
-            short ctr = 1;
-            int i;
-            while (size >= 16)
-            {
-                aBlock[15] = (byte)((ctr) & 0xFF);
-                ctr++;
-                aesEngine.ProcessBlock(aBlock, 0, sBlock, 0);
-                for (i = 0; i < 16; i++)
+                byte[] sBlock = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+                int size = frmpayload.Length;
+                byte[] decrypted = new byte[size];
+                byte bufferIndex = 0;
+                short ctr = 1;
+                int i;
+                while (size >= 16)
                 {
-                    decrypted[bufferIndex + i] = (byte)(frmpayload[bufferIndex + i] ^ sBlock[i]);
+                    aBlock[15] = (byte)((ctr) & 0xFF);
+                    ctr++;
+                    aesEngine.ProcessBlock(aBlock, 0, sBlock, 0);
+                    for (i = 0; i < 16; i++)
+                    {
+                        decrypted[bufferIndex + i] = (byte)(frmpayload[bufferIndex + i] ^ sBlock[i]);
+                    }
+                    size -= 16;
+                    bufferIndex += 16;
                 }
-                size -= 16;
-                bufferIndex += 16;
-            }
-            if (size > 0)
-            {
-                aBlock[15] = (byte)((ctr) & 0xFF);
-                aesEngine.ProcessBlock(aBlock, 0, sBlock, 0);
-                for (i = 0; i < size; i++)
+                if (size > 0)
                 {
-                    decrypted[bufferIndex + i] = (byte)(frmpayload[bufferIndex + i] ^ sBlock[i]);
+                    aBlock[15] = (byte)((ctr) & 0xFF);
+                    aesEngine.ProcessBlock(aBlock, 0, sBlock, 0);
+                    for (i = 0; i < size; i++)
+                    {
+                        decrypted[bufferIndex + i] = (byte)(frmpayload[bufferIndex + i] ^ sBlock[i]);
+                    }
                 }
-            }
-            frmpayload = decrypted;
-            return Encoding.Default.GetString(decrypted);
+                frmpayload = decrypted;
+                return Encoding.Default.GetString(decrypted);
+            }else
+                return null;
         }
 
         private byte[] StringToByteArray(string hex)
@@ -579,8 +579,10 @@ namespace PacketManager
             messageArray.AddRange(fcnt);
             if(fopts!=null)
                 messageArray.AddRange(fopts);
+            if(fport!=null)
             messageArray.AddRange(fport);
-            messageArray.AddRange(frmpayload);
+            if (frmpayload != null)
+                messageArray.AddRange(frmpayload);
             if(mic!=null)
                 messageArray.AddRange(mic);
             return messageArray.ToArray();
@@ -756,9 +758,13 @@ namespace PacketManager
         /// Case of Downlink message. TODO refactor this
         /// </summary>
         /// <param name="input"></param>
-        public LoRaMetada(LoRaGenericPayload payloadMessage, LoRaMessageType tmp)
+        public LoRaMetada(LoRaGenericPayload payloadMessage, LoRaMessageType messageType)
         {
-           rawB64data = Convert.ToBase64String(((LoRaPayloadJoinAccept)payloadMessage).ToMessage());
+            if(messageType == LoRaMessageType.JoinAccept)
+             rawB64data = Convert.ToBase64String(((LoRaPayloadJoinAccept)payloadMessage).ToMessage());
+            else if(messageType== LoRaMessageType.UnconfirmedDataDown||messageType==LoRaMessageType.ConfirmedDataDown)
+                rawB64data = Convert.ToBase64String(((LoRaPayloadStandardData)payloadMessage).ToMessage());
+
 
         }
     }
@@ -879,7 +885,7 @@ namespace PacketManager
             {
                 payloadMessage = (LoRaPayloadJoinAccept)payload;
                 loraMetadata = new LoRaMetada(payloadMessage, type);
-                var downlinkmsg = new DownlinkPktFwdMessage(loraMetadata.rawB64data,_datr,_rfch,_freq, _tmst);
+                var downlinkmsg = new DownlinkPktFwdMessage(loraMetadata.rawB64data,_datr,_rfch,_freq, _tmst+ 5000000);
               
                 var jsonMsg = JsonConvert.SerializeObject(downlinkmsg);
                 Console.WriteLine(jsonMsg);
@@ -891,11 +897,27 @@ namespace PacketManager
             }
             else if (type == LoRaMessageType.UnconfirmedDataDown)
             {
-                throw new NotImplementedException();
+                payloadMessage = (LoRaPayloadStandardData)payload;
+                loraMetadata = new LoRaMetada(payloadMessage, type);
+                var downlinkmsg = new DownlinkPktFwdMessage(loraMetadata.rawB64data, _datr, _rfch, _freq, _tmst+ 1000000);
+
+                var jsonMsg = JsonConvert.SerializeObject(downlinkmsg);
+                Console.WriteLine(jsonMsg);
+                var messageBytes = Encoding.Default.GetBytes(jsonMsg);
+
+                physicalPayload = new PhysicalPayload(physicalToken, PhysicalIdentifier.PULL_RESP, messageBytes);
             }
             else if (type == LoRaMessageType.ConfirmedDataDown)
             {
-                throw new NotImplementedException();
+                payloadMessage = (LoRaPayloadStandardData)payload;
+                loraMetadata = new LoRaMetada(payloadMessage, type);
+                var downlinkmsg = new DownlinkPktFwdMessage(loraMetadata.rawB64data, _datr, _rfch, _freq, _tmst + 1000000);
+
+                var jsonMsg = JsonConvert.SerializeObject(downlinkmsg);
+                Console.WriteLine(jsonMsg);
+                var messageBytes = Encoding.Default.GetBytes(jsonMsg);
+
+                physicalPayload = new PhysicalPayload(physicalToken, PhysicalIdentifier.PULL_RESP, messageBytes);
             }
 
         }
@@ -974,7 +996,7 @@ namespace PacketManager
             txpk = new Txpk()
             {
                 imme = false,
-                tmst = _tmst + 5000000,
+                tmst = _tmst,
                 data = _data,
                 size = (uint)byteData.Length,
                 freq = _freq,

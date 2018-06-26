@@ -166,7 +166,7 @@ namespace LoRaWanTest
             Array.Reverse(appkey);
             Array.Reverse(nwkkey);
 
-            LoRaPayloadStandardData lora = new LoRaPayloadStandardData(mhdr, devAddr, fctrl, fcnt, null, fport, frmPayload);
+            LoRaPayloadStandardData lora = new LoRaPayloadStandardData(mhdr, devAddr, fctrl, fcnt, null, fport, frmPayload,0);
             lora.PerformEncryption(BitConverter.ToString(appkey).Replace("-", ""));
             byte[] testEncrypt = new byte[4]
             {

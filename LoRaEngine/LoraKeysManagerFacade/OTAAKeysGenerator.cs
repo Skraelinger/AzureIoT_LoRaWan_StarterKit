@@ -36,6 +36,7 @@ namespace LoraKeysManagerFacade
         public static string calculateKey(byte[] type, byte[] appnonce, byte[] netid, byte[] devnonce, byte[] appKey)
         {
 
+
             Aes aes = new AesManaged();
             aes.Key = appKey;
 

@@ -94,7 +94,7 @@ namespace LoRaWan.NetworkServer
 
             //TODO remove the test connection
             if(connectionStringFromModule==null)
-                connectionStringFromModule = "HostName=testloriotv3hub.azure-devices.net;GatewayHostName=cehackpi1;";
+                connectionStringFromModule = "HostName=ronnietest.azure-devices.net;GatewayHostName=;";
 
             
             string connectionString = string.Empty;

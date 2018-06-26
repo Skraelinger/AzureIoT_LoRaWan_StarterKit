@@ -12,7 +12,7 @@ namespace LoRaWan.NetworkServer
     {
         //string testKey = "2B7E151628AED2A6ABF7158809CF4F3C";
         //string testDeviceId = "BE7A00000000888F";
-
+        private static UInt16 counter=1;
 
         public async Task processMessage(byte[] message)
         {
@@ -23,7 +23,6 @@ namespace LoRaWan.NetworkServer
             if (!loraMessage.isLoRaMessage)
             {
                 messageToSend = ProcessNonLoraMessage(loraMessage);
-
             }
             else
             {
@@ -34,9 +33,60 @@ namespace LoRaWan.NetworkServer
 
                 }
                 //normal message
-                else
+                else if( loraMessage.loRaMessageType ==LoRaMessageType.UnconfirmedDataUp)
                 {
                     messageToSend = await ProcessLoraMessage(loraMessage);
+
+                }else if (loraMessage.loRaMessageType == LoRaMessageType.ConfirmedDataUp)
+                {
+                    messageToSend = await ProcessLoraMessage(loraMessage);
+
+
+                    var _datr = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0].datr;
+
+                    uint _rfch = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0].rfch;
+
+                    double _freq = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0].freq;
+
+                    long _tmst = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0].tmst;
+
+                    Byte[] devAddrCorrect = new byte[4];
+                    Array.Copy(loraMessage.payloadMessage.devAddr, devAddrCorrect, 4);
+                    Array.Reverse(devAddrCorrect);
+
+                    LoRaPayloadStandardData ackLoRaMessage = new LoRaPayloadStandardData(StringToByteArray("A0"),
+                        devAddrCorrect,
+                         new byte[1] { 32 },
+                         BitConverter.GetBytes(counter)
+                         ,    
+                        null,
+                        null,
+                        null,
+                        1);
+
+                    counter++;
+
+                    //todo ronnie
+                    string devAddr = BitConverter.ToString(devAddrCorrect).Replace("-", "");
+
+                    Console.WriteLine($"Processing message from device: {devAddr}");
+
+                    Shared.loraDeviceInfoList.TryGetValue(devAddr, out LoraDeviceInfo loraDeviceInfo);
+
+                    ackLoRaMessage.PerformEncryption(loraDeviceInfo.AppSKey);
+                    ackLoRaMessage.SetMic(loraDeviceInfo.NwkSKey);
+
+
+                    byte[] rndToken = new byte[2];
+                    Random rnd = new Random();
+                    rnd.NextBytes(rndToken);
+                    LoRaMessage ackMessage = new LoRaMessage(ackLoRaMessage, LoRaMessageType.ConfirmedDataDown, rndToken, _datr, 0, _freq, _tmst);
+                   
+                    messageToSend = ackMessage.physicalPayload.GetMessage();
+                    
+                }
+                else
+                {
 
                 }
 
@@ -61,7 +111,8 @@ namespace LoRaWan.NetworkServer
 
             }
 
-            return messageToSend;
+
+                return messageToSend;
         }
         private async static Task<byte[]> ProcessLoraMessage(LoRaMessage loraMessage)
         {
