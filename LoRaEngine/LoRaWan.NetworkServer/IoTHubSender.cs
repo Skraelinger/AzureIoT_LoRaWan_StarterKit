@@ -89,55 +89,23 @@ namespace LoRaWan.NetworkServer
 
         private string createIoTHubConnectionString(bool enableGateway)
         {
-
-            string connectionStringFromModule = Environment.GetEnvironmentVariable("EdgeHubConnectionString");
-
-            //TODO remove the test connection
-            if(connectionStringFromModule==null)
-                connectionStringFromModule = "HostName=ronnietest.azure-devices.net;GatewayHostName=;";
-
-            
             string connectionString = string.Empty;
-            connectionString += $"HostName={getVal("HostName", connectionStringFromModule)};";
+
+            string hostName = Environment.GetEnvironmentVariable("IOTEDGE_IOTHUBHOSTNAME");
+            string gatewayHostName = Environment.GetEnvironmentVariable("IOTEDGE_GATEWAYHOSTNAME");
+
+            if(string.IsNullOrEmpty(hostName))
+            {
+                Console.WriteLine("Environment variable IOTEDGE_IOTHUBHOSTNAME not found, creation of iothub connection not possible");
+            }
+            
+
+            connectionString += $"HostName={hostName};";
 
             if (enableGateway)
-                connectionString += $"GatewayHostName={getVal("GatewayHostName", connectionStringFromModule)};";
-
-
-            string getVal(string key, string connStr)
-            {
-                if (string.IsNullOrEmpty(key))
-                {
-                    throw new Exception($"Key cannot be null");
-                }
-
-                if (string.IsNullOrEmpty(connStr))
-                {
-                    throw new Exception($"Connection string cannot be null");
-                }
-
-                string val = null;
-
-                foreach (var keyVal in connStr.Split(';'))
-                {
-                    int splIndex = keyVal.IndexOf('=');
-                    string k = keyVal.Substring(0, splIndex);
-                    if (k.ToLower().Trim() == key.ToLower().Trim())
-                    {
-                        val = keyVal.Substring(splIndex + 1, keyVal.Length - splIndex - 1);
-                        break;
-                    }
-                }
-
-                if (string.IsNullOrEmpty(val))
-                {
-                    throw new Exception($"Key '{key}' not found.");
-                }
-                else
-                {
-                    return val;
-                }
-            }
+                connectionString += $"GatewayHostName={hostName};";
+                      
+            
 
             return connectionString;
 

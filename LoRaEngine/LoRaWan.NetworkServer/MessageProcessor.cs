@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+
 namespace LoRaWan.NetworkServer
 {
     public class MessageProcessor : IDisposable
@@ -32,6 +33,7 @@ namespace LoRaWan.NetworkServer
                     messageToSend = await ProcessJoinRequest(loraMessage);
 
                 }
+
                 //normal message
                 else if( loraMessage.loRaMessageType ==LoRaMessageType.UnconfirmedDataUp)
                 {
@@ -102,12 +104,11 @@ namespace LoRaWan.NetworkServer
             byte[] messageToSend = new byte[0];
             if (loraMessage.physicalPayload.identifier == PhysicalIdentifier.PULL_DATA)
             {
+               
 
                 PhysicalPayload pullAck = new PhysicalPayload(loraMessage.physicalPayload.token, PhysicalIdentifier.PULL_ACK, null);
 
                 messageToSend = pullAck.GetMessage();
-
-                Console.WriteLine("Pull Ack sent");
 
             }
 
@@ -154,12 +155,22 @@ namespace LoRaWan.NetworkServer
                     }
 
 
+                    Rxpk rxPk = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0];
 
-                    PhysicalPayload pushAck = new PhysicalPayload(loraMessage.physicalPayload.token, PhysicalIdentifier.PUSH_ACK, null);
+                    dynamic fullPayload = JObject.FromObject(rxPk);
 
-                    messageToSend = pushAck.GetMessage();
+                    string jsonDataPayload = LoraDecoders.DecodeMessage(decryptedMessage);
 
-                    Console.WriteLine($"Sending message '{decryptedMessage}' to hub...");
+                    fullPayload.data = JObject.Parse(jsonDataPayload);
+                    fullPayload.EUI = loraDeviceInfo.DevEUI;
+                    fullPayload.edgets = (Int32)(DateTime.UtcNow.Subtract(new DateTime(1970, 1, 1))).TotalSeconds;
+                    
+                                       
+                    string iotHubMsg = fullPayload.ToString(Newtonsoft.Json.Formatting.None);
+
+                  
+
+                   
 
                     if (loraDeviceInfo.HubSender == null)
                     {
@@ -169,7 +180,13 @@ namespace LoRaWan.NetworkServer
                     }
 
 
-                    await loraDeviceInfo.HubSender.SendMessage(decryptedMessage);
+                    await loraDeviceInfo.HubSender.SendMessage(iotHubMsg);
+
+                    Console.WriteLine($"Sending message '{jsonDataPayload}' to hub...");
+
+                    PhysicalPayload pushAck = new PhysicalPayload(loraMessage.physicalPayload.token, PhysicalIdentifier.PUSH_ACK, null);
+
+                    messageToSend = pushAck.GetMessage();
 
                 }
                 else

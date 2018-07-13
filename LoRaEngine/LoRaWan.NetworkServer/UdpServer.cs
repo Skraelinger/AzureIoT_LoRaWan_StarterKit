@@ -5,6 +5,7 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Concurrent;
 using System.Net;
+using System.Net.Http;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
@@ -33,8 +34,11 @@ namespace LoRaWan.NetworkServer
 
         public static async Task UdpSendMessage(byte[] messageToSend)
         {
-            if (messageToSend!=null && messageToSend.Length != 0)
+            if (messageToSend != null && messageToSend.Length != 0)
+            {
                 await udpClient.SendAsync(messageToSend, messageToSend.Length, remoteLoRaAggregatorIp.ToString(), remoteLoRaAggregatorPort);
+                Console.WriteLine($"UDP message sent on port: {remoteLoRaAggregatorPort}");
+            }
         }
 
         async Task RunUdpListener()
@@ -51,21 +55,23 @@ namespace LoRaWan.NetworkServer
             {
                 UdpReceiveResult receivedResults = await udpClient.ReceiveAsync();
 
-                Console.WriteLine($"UDP message received ({receivedResults.Buffer.Length} bytes).");
+                Console.WriteLine($"UDP message received ({receivedResults.Buffer.Length} bytes) from port: {receivedResults.RemoteEndPoint.Port}");
 
-                //connection
-                if (remoteLoRaAggregatorIp == null)
+             
+                //todo ronnie the ack comes in another port so I check if the msg size is 12 to detect ack but we need a better way
+                if (receivedResults.Buffer.Length == 12)
                 {
                     remoteLoRaAggregatorIp = receivedResults.RemoteEndPoint.Address;
-                    remoteLoRaAggregatorPort = receivedResults.RemoteEndPoint.Port; 
-                        
+                    remoteLoRaAggregatorPort = receivedResults.RemoteEndPoint.Port;                   
                 }
+
+               
 
 
                 try
                 {
                     MessageProcessor messageProcessor = new MessageProcessor();
-                     messageProcessor.processMessage(receivedResults.Buffer);
+                    _= messageProcessor.processMessage(receivedResults.Buffer);
                 }
                 catch (Exception ex)
                 {
@@ -95,9 +101,9 @@ namespace LoRaWan.NetworkServer
                 ITransportSettings[] settings = { mqttSetting };
 
                 //if running as Edge module
-                if (Environment.GetEnvironmentVariable("EdgeHubConnectionString") != null)
+                if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("IOTEDGE_APIVERSION")))
                 {
-                    ioTHubModuleClient = ModuleClient.CreateFromEnvironment(settings);
+                    ioTHubModuleClient = await ModuleClient.CreateFromEnvironmentAsync(settings);
 
                     Console.WriteLine("Getting properties from module twin...");
 
@@ -124,10 +130,7 @@ namespace LoRaWan.NetworkServer
                 }
                 //running as non edge module for test and debugging
                 else
-                {
-
-                    //TODO ronnie remove the test keys
-                    //LoraDeviceInfoManager.FacadeServerUrl = "https://lorafacade.azurewebsites.net/api/";
+                {              
                     LoraDeviceInfoManager.FacadeServerUrl = "http://localhost:7071/api/";
                     LoraDeviceInfoManager.FacadeAuthCode = "";
                 }
@@ -175,11 +178,18 @@ namespace LoRaWan.NetworkServer
             return Task.CompletedTask;
         }
 
-
+        //todo ronnie remove the http logger once routing works correctly
+        //private static void LogMessage(string logJson)
+        //{
+        //    var content = new StringContent(logJson, Encoding.UTF8, "application/json");
+        //    HttpClient httpClient = new HttpClient();
+        //    httpClient.PostAsync("http://cehackpi1:3427/message", content);
+        //}
 
         public void Dispose()
         {
 
         }
     }
+
 }
