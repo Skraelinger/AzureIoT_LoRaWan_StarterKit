@@ -27,6 +27,7 @@ namespace LoraKeysManagerFacade
         public string NetId;
         public bool IsOurDevice = false;
         public bool IsJoinValid = false;
+        public UInt16 FCnt;
     }
 
   
@@ -107,6 +108,8 @@ namespace LoraKeysManagerFacade
                             loraDeviceInfo.AppSKey = twin.Tags["AppSKey"].Value;
                         loraDeviceInfo.NwkSKey = twin.Tags["NwkSKey"].Value;
                         loraDeviceInfo.IsOurDevice = true;
+                        if (twin.Properties.Reported.Contains("FCnt"))
+                            loraDeviceInfo.FCnt = twin.Properties.Reported["FCnt"];
                     }
                 }
 

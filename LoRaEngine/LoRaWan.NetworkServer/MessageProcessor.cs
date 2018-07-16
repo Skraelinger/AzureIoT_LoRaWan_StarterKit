@@ -13,7 +13,7 @@ namespace LoRaWan.NetworkServer
     {
         //string testKey = "2B7E151628AED2A6ABF7158809CF4F3C";
         //string testDeviceId = "BE7A00000000888F";
-        private static UInt16 counter=1;
+        //private static UInt16 counter=1;
 
         public async Task processMessage(byte[] message)
         {
@@ -35,60 +35,9 @@ namespace LoRaWan.NetworkServer
                 }
 
                 //normal message
-                else if( loraMessage.loRaMessageType ==LoRaMessageType.UnconfirmedDataUp)
+                else if( loraMessage.loRaMessageType ==LoRaMessageType.UnconfirmedDataUp || loraMessage.loRaMessageType == LoRaMessageType.ConfirmedDataUp)
                 {
                     messageToSend = await ProcessLoraMessage(loraMessage);
-
-                }else if (loraMessage.loRaMessageType == LoRaMessageType.ConfirmedDataUp)
-                {
-                    messageToSend = await ProcessLoraMessage(loraMessage);
-
-
-                    var _datr = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0].datr;
-
-                    uint _rfch = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0].rfch;
-
-                    double _freq = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0].freq;
-
-                    long _tmst = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0].tmst;
-
-                    Byte[] devAddrCorrect = new byte[4];
-                    Array.Copy(loraMessage.payloadMessage.devAddr, devAddrCorrect, 4);
-                    Array.Reverse(devAddrCorrect);
-
-                    LoRaPayloadStandardData ackLoRaMessage = new LoRaPayloadStandardData(StringToByteArray("A0"),
-                        devAddrCorrect,
-                         new byte[1] { 32 },
-                         BitConverter.GetBytes(counter)
-                         ,    
-                        null,
-                        null,
-                        null,
-                        1);
-
-                    counter++;
-
-                    //todo ronnie
-                    string devAddr = BitConverter.ToString(devAddrCorrect).Replace("-", "");
-
-                    Console.WriteLine($"Processing message from device: {devAddr}");
-
-                    Shared.loraDeviceInfoList.TryGetValue(devAddr, out LoraDeviceInfo loraDeviceInfo);
-
-                    ackLoRaMessage.PerformEncryption(loraDeviceInfo.AppSKey);
-                    ackLoRaMessage.SetMic(loraDeviceInfo.NwkSKey);
-
-
-                    byte[] rndToken = new byte[2];
-                    Random rnd = new Random();
-                    rnd.NextBytes(rndToken);
-                    LoRaMessage ackMessage = new LoRaMessage(ackLoRaMessage, LoRaMessageType.ConfirmedDataDown, rndToken, _datr, 0, _freq, _tmst);
-                   
-                    messageToSend = ackMessage.physicalPayload.GetMessage();
-                    
-                }
-                else
-                {
 
                 }
 
@@ -167,10 +116,7 @@ namespace LoRaWan.NetworkServer
                     
                                        
                     string iotHubMsg = fullPayload.ToString(Newtonsoft.Json.Formatting.None);
-
-                  
-
-                   
+         
 
                     if (loraDeviceInfo.HubSender == null)
                     {
@@ -179,14 +125,56 @@ namespace LoRaWan.NetworkServer
 
                     }
 
+                    //todo ronnie & mik check the frame counter per device
+                    loraDeviceInfo.FCnt++;
 
-                    await loraDeviceInfo.HubSender.SendMessage(iotHubMsg);
+                    await loraDeviceInfo.HubSender.SendMessage(iotHubMsg, loraDeviceInfo.FCnt);
 
                     Console.WriteLine($"Sending message '{jsonDataPayload}' to hub...");
 
                     PhysicalPayload pushAck = new PhysicalPayload(loraMessage.physicalPayload.token, PhysicalIdentifier.PUSH_ACK, null);
 
                     messageToSend = pushAck.GetMessage();
+
+
+                    if(loraMessage.loRaMessageType == LoRaMessageType.ConfirmedDataUp)
+                    {
+                        
+
+                        var _datr = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0].datr;
+
+                        uint _rfch = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0].rfch;
+
+                        double _freq = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0].freq;
+
+                        long _tmst = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0].tmst;
+
+                        Byte[] devAddrCorrect = new byte[4];
+                        Array.Copy(loraMessage.payloadMessage.devAddr, devAddrCorrect, 4);
+                        Array.Reverse(devAddrCorrect);
+
+                        LoRaPayloadStandardData ackLoRaMessage = new LoRaPayloadStandardData(StringToByteArray("A0"),
+                            devAddrCorrect,
+                             new byte[1] { 32 },
+                             BitConverter.GetBytes(loraDeviceInfo.FCnt)
+                             ,
+                            null,
+                            null,
+                            null,
+                            1);
+
+
+                        ackLoRaMessage.PerformEncryption(loraDeviceInfo.AppSKey);
+                        ackLoRaMessage.SetMic(loraDeviceInfo.NwkSKey);
+
+
+                        byte[] rndToken = new byte[2];
+                        Random rnd = new Random();
+                        rnd.NextBytes(rndToken);
+                        LoRaMessage ackMessage = new LoRaMessage(ackLoRaMessage, LoRaMessageType.ConfirmedDataDown, rndToken, _datr, 0, _freq, _tmst);
+
+                        messageToSend = ackMessage.physicalPayload.GetMessage();
+                    }
 
                 }
                 else
@@ -288,6 +276,9 @@ namespace LoRaWan.NetworkServer
 
                 messageToSend = joinAcceptMessage.physicalPayload.GetMessage();
 
+                //todo ronnie this should be saved back to the server too
+                joinLoraDeviceInfo.FCnt = 0;
+
                 //add to cache for processing normal messages. This awioids one additional call to the server.
                 Shared.loraDeviceInfoList.TryAdd(joinLoraDeviceInfo.DevAddr, joinLoraDeviceInfo);
 
@@ -301,7 +292,7 @@ namespace LoRaWan.NetworkServer
             return messageToSend;
         }
 
-        private byte[] StringToByteArray(string hex)
+        private static byte[] StringToByteArray(string hex)
         {
 
             return Enumerable.Range(0, hex.Length)

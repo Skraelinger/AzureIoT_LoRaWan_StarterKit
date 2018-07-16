@@ -1,4 +1,5 @@
 ﻿using Microsoft.Azure.Devices.Client;
+using Microsoft.Azure.Devices.Shared;
 using System;
 using System.Collections.Generic;
 using System.Security;
@@ -59,7 +60,7 @@ namespace LoRaWan.NetworkServer
             }
         }
 
-        public async Task SendMessage(string strMessage)
+        public async Task SendMessage(string strMessage, int FCnt)
         {
 
             if (!string.IsNullOrEmpty(strMessage))
@@ -74,7 +75,12 @@ namespace LoRaWan.NetworkServer
                     await deviceClient.SendEventAsync(new Message(UTF8Encoding.ASCII.GetBytes(strMessage)));
 
                     //in future retrive the c2d msg to be sent to the device
-                    //var c2dMsg = await deviceClient.ReceiveAsync((TimeSpan.FromSeconds(2)));
+                    //var c2dMsg = await deviceClient.ReceiveAsync((TimeSpan.FromSeconds(2)));                  
+
+                    //updating the framecount
+                    var prop = new TwinCollection($"{{\"FCnt\":{FCnt}}}");
+                    await deviceClient.UpdateReportedPropertiesAsync(prop);
+
 
                     //disable retry, this allows the server to close the connection if another gateway tries to open the connection for the same device
                     deviceClient.SetRetryPolicy(new NoRetry());
@@ -86,6 +92,8 @@ namespace LoRaWan.NetworkServer
 
             }
         }
+
+        
 
         private string createIoTHubConnectionString(bool enableGateway)
         {
