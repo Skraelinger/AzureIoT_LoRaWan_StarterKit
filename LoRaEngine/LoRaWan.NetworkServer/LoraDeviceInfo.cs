@@ -20,7 +20,8 @@ namespace LoRaWan.NetworkServer
         public bool IsOurDevice = false;
         public bool IsJoinValid = false;
         public IoTHubSender HubSender;
-        public UInt16 FCnt;
+        public UInt16 FCntUp;
+        public UInt16 FCntDown;
     }
 
 }

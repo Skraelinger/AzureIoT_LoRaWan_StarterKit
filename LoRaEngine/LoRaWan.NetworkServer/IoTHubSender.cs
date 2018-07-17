@@ -60,7 +60,7 @@ namespace LoRaWan.NetworkServer
             }
         }
 
-        public async Task SendMessage(string strMessage, int FCnt)
+        public async Task SendMessageAsync(string strMessage)
         {
 
             if (!string.IsNullOrEmpty(strMessage))
@@ -74,14 +74,6 @@ namespace LoRaWan.NetworkServer
                     deviceClient.SetRetryPolicy(new ExponentialBackoff(int.MaxValue, TimeSpan.FromMilliseconds(100), TimeSpan.FromSeconds(10), TimeSpan.FromMilliseconds(100)));
                     await deviceClient.SendEventAsync(new Message(UTF8Encoding.ASCII.GetBytes(strMessage)));
 
-                    //in future retrive the c2d msg to be sent to the device
-                    //var c2dMsg = await deviceClient.ReceiveAsync((TimeSpan.FromSeconds(2)));                  
-
-                    //updating the framecount
-                    var prop = new TwinCollection($"{{\"FCnt\":{FCnt}}}");
-                    await deviceClient.UpdateReportedPropertiesAsync(prop);
-
-
                     //disable retry, this allows the server to close the connection if another gateway tries to open the connection for the same device
                     deviceClient.SetRetryPolicy(new NoRetry());
                 }
@@ -92,8 +84,61 @@ namespace LoRaWan.NetworkServer
 
             }
         }
+        public async Task UpdateFcntAsync(int FCntUp, int? FCntDown)
+        {
 
-        
+
+            try
+            {
+                CreateDeviceClient();
+
+                //updating the framecount non blocking because not critical and takes quite a bit of time
+                TwinCollection prop;
+                if (FCntDown != null)
+                    prop = new TwinCollection($"{{\"FCntUp\":{FCntUp},\"FCntDown\":{FCntDown}}}");
+                else
+                    prop = new TwinCollection($"{{\"FCntUp\":{FCntUp}}}");
+
+                await deviceClient.UpdateReportedPropertiesAsync(prop);
+
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Could not update twins with error: {ex.Message}");
+            }
+
+            
+        }
+
+        public async Task<Message> GetMessageAsync(TimeSpan timeout)
+        {
+
+
+            try
+            {
+                CreateDeviceClient();
+
+                return await deviceClient.ReceiveAsync(timeout);
+
+
+
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Could not retrive message to IoTHub/Edge with error: {ex.Message}");
+                return null;
+            }
+
+
+        }
+
+        public async Task CompleteAsync(Message message)
+        {
+          
+            await deviceClient.CompleteAsync(message);          
+
+        }
+
 
         private string createIoTHubConnectionString(bool enableGateway)
         {

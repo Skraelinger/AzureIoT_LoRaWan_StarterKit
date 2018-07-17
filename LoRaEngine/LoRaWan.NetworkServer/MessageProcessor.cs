@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json.Linq;
+﻿using Microsoft.Azure.Devices.Client;
+using Newtonsoft.Json.Linq;
 using PacketManager;
 using System;
 using System.Collections.Generic;
@@ -15,29 +16,34 @@ namespace LoRaWan.NetworkServer
         //string testDeviceId = "BE7A00000000888F";
         //private static UInt16 counter=1;
 
+        private DateTime startTimeProcessing;
+     
+
         public async Task processMessage(byte[] message)
         {
+            startTimeProcessing = DateTime.Now;
+
             LoRaMessage loraMessage = new LoRaMessage(message);
 
-            byte[] messageToSend = new Byte[0];
+            byte[] udpMsgForPktForwarder = new Byte[0];
 
             if (!loraMessage.isLoRaMessage)
             {
-                messageToSend = ProcessNonLoraMessage(loraMessage);
+                udpMsgForPktForwarder = ProcessNonLoraMessage(loraMessage);
             }
             else
             {
                 //join message
                 if (loraMessage.loRaMessageType == LoRaMessageType.JoinRequest)
                 {
-                    messageToSend = await ProcessJoinRequest(loraMessage);
+                    udpMsgForPktForwarder = await ProcessJoinRequest(loraMessage);
 
                 }
 
                 //normal message
                 else if( loraMessage.loRaMessageType ==LoRaMessageType.UnconfirmedDataUp || loraMessage.loRaMessageType == LoRaMessageType.ConfirmedDataUp)
                 {
-                    messageToSend = await ProcessLoraMessage(loraMessage);
+                    udpMsgForPktForwarder = await ProcessLoraMessage(loraMessage);
 
                 }
 
@@ -45,78 +51,59 @@ namespace LoRaWan.NetworkServer
           
 
             //send reply to pktforwarder
-            await UdpServer.UdpSendMessage(messageToSend);
+            await UdpServer.UdpSendMessage(udpMsgForPktForwarder);
         }
 
-        private static byte[] ProcessNonLoraMessage(LoRaMessage loraMessage)
+        private byte[] ProcessNonLoraMessage(LoRaMessage loraMessage)
         {
-            byte[] messageToSend = new byte[0];
+            byte[] udpMsgForPktForwarder = new byte[0];
             if (loraMessage.physicalPayload.identifier == PhysicalIdentifier.PULL_DATA)
             {
                
 
                 PhysicalPayload pullAck = new PhysicalPayload(loraMessage.physicalPayload.token, PhysicalIdentifier.PULL_ACK, null);
 
-                messageToSend = pullAck.GetMessage();
+                udpMsgForPktForwarder = pullAck.GetMessage();
 
             }
 
-
-                return messageToSend;
+            return udpMsgForPktForwarder;
         }
-        private async static Task<byte[]> ProcessLoraMessage(LoRaMessage loraMessage)
+        private async Task<byte[]> ProcessLoraMessage(LoRaMessage loraMessage)
         {
-            byte[] messageToSend = new byte[0];
+            byte[] udpMsgForPktForwarder = new byte[0];
             string devAddr = BitConverter.ToString(loraMessage.payloadMessage.devAddr).Replace("-", "");
 
-            Console.WriteLine($"Processing message from device: {devAddr}");
+            Console.WriteLine($"Processing message from device: {devAddr}");          
 
-            Shared.loraDeviceInfoList.TryGetValue(devAddr, out LoraDeviceInfo loraDeviceInfo);
+            Cache.TryGetValue(devAddr, out LoraDeviceInfo loraDeviceInfo);
 
+           
 
             if (loraDeviceInfo == null)
             {
                 Console.WriteLine("No cache");
 
-                loraDeviceInfo = await LoraDeviceInfoManager.GetLoraDeviceInfoAsync(devAddr);
+                loraDeviceInfo = await LoraDeviceInfoManager.GetLoraDeviceInfoAsync(devAddr);         
 
-                Shared.loraDeviceInfoList.TryAdd(devAddr, loraDeviceInfo);
+                Cache.AddToCache(devAddr, loraDeviceInfo);
+
             }
             else
             {
                 Console.WriteLine("From cache");
+              
             }
 
+      
 
             if (loraDeviceInfo.IsOurDevice)
             {
+             
 
                 if (loraMessage.CheckMic(loraDeviceInfo.NwkSKey))
                 {
-                    string decryptedMessage = null;
-                    try
-                    {
-                        decryptedMessage = loraMessage.DecryptPayload(loraDeviceInfo.AppSKey);
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Failed to decrypt message: {ex.Message}");
-                    }
 
-
-                    Rxpk rxPk = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0];
-
-                    dynamic fullPayload = JObject.FromObject(rxPk);
-
-                    string jsonDataPayload = LoraDecoders.DecodeMessage(decryptedMessage);
-
-                    fullPayload.data = JObject.Parse(jsonDataPayload);
-                    fullPayload.EUI = loraDeviceInfo.DevEUI;
-                    fullPayload.edgets = (Int32)(DateTime.UtcNow.Subtract(new DateTime(1970, 1, 1))).TotalSeconds;
-                    
-                                       
-                    string iotHubMsg = fullPayload.ToString(Newtonsoft.Json.Formatting.None);
-         
 
                     if (loraDeviceInfo.HubSender == null)
                     {
@@ -125,21 +112,98 @@ namespace LoRaWan.NetworkServer
 
                     }
 
-                    //todo ronnie & mik check the frame counter per device
-                    loraDeviceInfo.FCnt++;
+                    //start checking for new c2d message asap 
+                    Message c2dMsg = await loraDeviceInfo.HubSender.GetMessageAsync(TimeSpan.FromMilliseconds(10));
 
-                    await loraDeviceInfo.HubSender.SendMessage(iotHubMsg, loraDeviceInfo.FCnt);
+                   
 
-                    Console.WriteLine($"Sending message '{jsonDataPayload}' to hub...");
+                    //todo ronnie double check the fcnt logic
+                    UInt16 fcntup = BitConverter.ToUInt16(((LoRaPayloadStandardData)loraMessage.payloadMessage).fcnt, 0);
 
-                    PhysicalPayload pushAck = new PhysicalPayload(loraMessage.physicalPayload.token, PhysicalIdentifier.PUSH_ACK, null);
-
-                    messageToSend = pushAck.GetMessage();
-
-
-                    if(loraMessage.loRaMessageType == LoRaMessageType.ConfirmedDataUp)
+                    //todo ronnie add tollernace range
+                    //check if the frame counter is valid: either is above the server one or is an ABP device resetting the counter (relaxed seqno checking)
+                    if (fcntup > loraDeviceInfo.FCntUp || (fcntup==1 && String.IsNullOrEmpty(loraDeviceInfo.AppEUI)))
                     {
+                        Console.WriteLine($"Valid frame counter, msg: {fcntup} server: {loraDeviceInfo.FCntUp}");
+                        loraDeviceInfo.FCntUp = fcntup;
+
+                        string decryptedMessage = null;
+                        try
+                        {
+                            decryptedMessage = loraMessage.DecryptPayload(loraDeviceInfo.AppSKey);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Failed to decrypt message: {ex.Message}");
+                        }
+
+
+
+                        Rxpk rxPk = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0];
+
+
+                        dynamic fullPayload = JObject.FromObject(rxPk);
+
+                        string jsonDataPayload = LoraDecoders.DecodeMessage(decryptedMessage);
+
+                        fullPayload.data = JObject.Parse(jsonDataPayload);
+                        fullPayload.EUI = loraDeviceInfo.DevEUI;
+                        fullPayload.edgets = (Int32)(DateTime.UtcNow.Subtract(new DateTime(1970, 1, 1))).TotalSeconds;
+
+
+                        string iotHubMsg = fullPayload.ToString(Newtonsoft.Json.Formatting.None);
+
+
+
+                        Console.WriteLine($"Sending message '{jsonDataPayload}' to hub...");
+
+                        await loraDeviceInfo.HubSender.SendMessageAsync(iotHubMsg);
                         
+                       
+
+
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Invalid frame counter, msg: {fcntup} server: {loraDeviceInfo.FCntUp}");
+                    }
+
+                    //check again for messages just before sending the ack
+                    if (c2dMsg == null)
+                        c2dMsg = await loraDeviceInfo.HubSender.GetMessageAsync(TimeSpan.FromMilliseconds(10));
+
+                    byte[] bytesC2dMsg = null;
+                    //check if we got a c2d message to be added in the ack message
+                    if (c2dMsg != null)
+                    {
+                        bytesC2dMsg = c2dMsg.GetBytes();
+                        if (bytesC2dMsg != null)
+                            Console.WriteLine($"C2D message: {Encoding.UTF8.GetString(bytesC2dMsg)}");
+                    }
+
+
+                    //if no confirmation and no downstream messages send ack only
+                    if (loraMessage.loRaMessageType == LoRaMessageType.UnconfirmedDataUp && c2dMsg ==null )
+                    {
+
+                        PhysicalPayload pushAck = new PhysicalPayload(loraMessage.physicalPayload.token, PhysicalIdentifier.PUSH_ACK, null);
+                        udpMsgForPktForwarder = pushAck.GetMessage();
+
+                        _ = loraDeviceInfo.HubSender.UpdateFcntAsync(loraDeviceInfo.FCntUp, null);
+
+                    } 
+                    //if confirmation or cloud to device msg send down the message
+                    else if (loraMessage.loRaMessageType == LoRaMessageType.ConfirmedDataUp || c2dMsg!=null )
+                    {
+
+                        //increase the fcnt down and save it to iot hub twins
+                        loraDeviceInfo.FCntDown++;
+
+                        Console.WriteLine($"Down frame counter: {loraDeviceInfo.FCntDown}");
+
+                        //Saving both fcnts to twins
+                        _= loraDeviceInfo.HubSender.UpdateFcntAsync(loraDeviceInfo.FCntUp, loraDeviceInfo.FCntDown);
+
 
                         var _datr = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0].datr;
 
@@ -153,27 +217,37 @@ namespace LoRaWan.NetworkServer
                         Array.Copy(loraMessage.payloadMessage.devAddr, devAddrCorrect, 4);
                         Array.Reverse(devAddrCorrect);
 
+                        
+
                         LoRaPayloadStandardData ackLoRaMessage = new LoRaPayloadStandardData(StringToByteArray("A0"),
                             devAddrCorrect,
                              new byte[1] { 32 },
-                             BitConverter.GetBytes(loraDeviceInfo.FCnt)
+                             BitConverter.GetBytes(loraDeviceInfo.FCntDown)
                              ,
                             null,
                             null,
-                            null,
+                            bytesC2dMsg
+                            ,
                             1);
 
 
-                        ackLoRaMessage.PerformEncryption(loraDeviceInfo.AppSKey);
+                        var s = ackLoRaMessage.PerformEncryption(loraDeviceInfo.AppSKey);
                         ackLoRaMessage.SetMic(loraDeviceInfo.NwkSKey);
+
 
 
                         byte[] rndToken = new byte[2];
                         Random rnd = new Random();
                         rnd.NextBytes(rndToken);
                         LoRaMessage ackMessage = new LoRaMessage(ackLoRaMessage, LoRaMessageType.ConfirmedDataDown, rndToken, _datr, 0, _freq, _tmst);
+                     
+                        udpMsgForPktForwarder = ackMessage.physicalPayload.GetMessage();
 
-                        messageToSend = ackMessage.physicalPayload.GetMessage();
+                        if (c2dMsg != null)
+                            _ = loraDeviceInfo.HubSender.CompleteAsync(c2dMsg);
+
+
+
                     }
 
                 }
@@ -189,13 +263,18 @@ namespace LoRaWan.NetworkServer
                 Console.WriteLine($"Ignore message because is not our device");
             }
 
-            return messageToSend;
+            Console.WriteLine($"Total processing time: {DateTime.Now - startTimeProcessing}");
+
+            return udpMsgForPktForwarder;
         }
+
+       
+
         private async Task<byte[]> ProcessJoinRequest(LoRaMessage loraMessage)
         {
             Console.WriteLine("Join Request Received");
 
-            byte[] messageToSend = new Byte[0];
+            byte[] udpMsgForPktForwarder = new Byte[0];
 
             LoraDeviceInfo joinLoraDeviceInfo;
 
@@ -208,13 +287,14 @@ namespace LoRaWan.NetworkServer
             string devNonce = BitConverter.ToString(joinReq.devNonce).Replace("-", "");
 
             //checking if this devnonce was already processed or the deveui was already refused
-            Shared.loraJoinRequestList.TryGetValue(devEui, out joinLoraDeviceInfo);
+            Cache.TryGetValue(devEui, out joinLoraDeviceInfo);
 
 
             //we have a join request in the cache
             if (joinLoraDeviceInfo != null)
             {
 
+               
                 //it is not our device so ingore the join
                 if (!joinLoraDeviceInfo.IsOurDevice)
                 {
@@ -274,25 +354,26 @@ namespace LoRaWan.NetworkServer
 
                 LoRaMessage joinAcceptMessage = new LoRaMessage(loRaPayloadJoinAccept, LoRaMessageType.JoinAccept, loraMessage.physicalPayload.token, _datr, 0, _freq, _tmst);
 
-                messageToSend = joinAcceptMessage.physicalPayload.GetMessage();
+                udpMsgForPktForwarder = joinAcceptMessage.physicalPayload.GetMessage();
 
                 //todo ronnie this should be saved back to the server too
-                joinLoraDeviceInfo.FCnt = 0;
+                joinLoraDeviceInfo.FCntUp = 0;
+                joinLoraDeviceInfo.FCntDown = 0;
 
                 //add to cache for processing normal messages. This awioids one additional call to the server.
-                Shared.loraDeviceInfoList.TryAdd(joinLoraDeviceInfo.DevAddr, joinLoraDeviceInfo);
+                Cache.AddToCache(joinLoraDeviceInfo.DevAddr, joinLoraDeviceInfo);
 
                 Console.WriteLine("Join Accept sent");
                   
              }
 
             //add to cache to avoid replay attack, btw server side does the check too.
-            Shared.loraJoinRequestList.TryAdd(devEui, joinLoraDeviceInfo);
+            Cache.AddToCache(devEui, joinLoraDeviceInfo);
 
-            return messageToSend;
+            return udpMsgForPktForwarder;
         }
 
-        private static byte[] StringToByteArray(string hex)
+        private byte[] StringToByteArray(string hex)
         {
 
             return Enumerable.Range(0, hex.Length)

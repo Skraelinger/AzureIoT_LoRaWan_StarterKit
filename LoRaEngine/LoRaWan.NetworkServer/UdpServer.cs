@@ -37,7 +37,7 @@ namespace LoRaWan.NetworkServer
             if (messageToSend != null && messageToSend.Length != 0)
             {
                 await udpClient.SendAsync(messageToSend, messageToSend.Length, remoteLoRaAggregatorIp.ToString(), remoteLoRaAggregatorPort);
-                Console.WriteLine($"UDP message sent on port: {remoteLoRaAggregatorPort}");
+                //Console.WriteLine($"UDP message sent on port: {remoteLoRaAggregatorPort}");
             }
         }
 
@@ -55,7 +55,7 @@ namespace LoRaWan.NetworkServer
             {
                 UdpReceiveResult receivedResults = await udpClient.ReceiveAsync();
 
-                Console.WriteLine($"UDP message received ({receivedResults.Buffer.Length} bytes) from port: {receivedResults.RemoteEndPoint.Port}");
+                //Console.WriteLine($"UDP message received ({receivedResults.Buffer.Length} bytes) from port: {receivedResults.RemoteEndPoint.Port}");
 
              
                 //todo ronnie the ack comes in another port so I check if the msg size is 12 to detect ack but we need a better way
