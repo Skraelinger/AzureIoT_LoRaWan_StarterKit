@@ -33,7 +33,7 @@ namespace LoRaWan.NetworkServer
                 try
                 {
 
-                    string partConnection = createIoTHubConnectionString(false);
+                    string partConnection = createIoTHubConnectionString();
                     string deviceConnectionStr = $"{partConnection}DeviceId={DevEUI};SharedAccessKey={PrimaryKey}";
 
                     deviceClient = DeviceClient.CreateFromConnectionString(deviceConnectionStr, TransportType.Mqtt_Tcp_Only);
@@ -140,12 +140,18 @@ namespace LoRaWan.NetworkServer
         }
 
 
-        private string createIoTHubConnectionString(bool enableGateway)
+        private string createIoTHubConnectionString()
         {
+
+            bool enableGateway=false;
             string connectionString = string.Empty;
 
             string hostName = Environment.GetEnvironmentVariable("IOTEDGE_IOTHUBHOSTNAME");
             string gatewayHostName = Environment.GetEnvironmentVariable("IOTEDGE_GATEWAYHOSTNAME");
+
+            if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ENABLE_GATEWAY")))
+                enableGateway = bool.Parse(Environment.GetEnvironmentVariable("ENABLE_GATEWAY"));
+            
 
             if(string.IsNullOrEmpty(hostName))
             {
@@ -156,7 +162,9 @@ namespace LoRaWan.NetworkServer
             connectionString += $"HostName={hostName};";
 
             if (enableGateway)
-                connectionString += $"GatewayHostName={hostName};";
+            {
+                connectionString += $"GatewayHostName={hostName};";                
+            }
                       
             
 

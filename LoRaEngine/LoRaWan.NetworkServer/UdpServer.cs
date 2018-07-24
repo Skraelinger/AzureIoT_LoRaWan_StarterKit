@@ -23,10 +23,10 @@ namespace LoRaWan.NetworkServer
         private static IPAddress remoteLoRaAggregatorIp;
         private static int remoteLoRaAggregatorPort;
 
-        public async Task RunServer(bool bypassCertVerification)
+        public async Task RunServer()
         {
 
-            await InitCallBack(bypassCertVerification);
+            await InitCallBack();
          
             await RunUdpListener();
 
@@ -48,7 +48,7 @@ namespace LoRaWan.NetworkServer
             IPEndPoint endPoint = new IPEndPoint(IPAddress.Any, PORT);
             udpClient = new UdpClient(endPoint);
 
-            Console.WriteLine($"UDP Listener started on port {PORT}");
+            Console.WriteLine($"LoRaWAN server started on port {PORT}");
                  
 
             while (true)
@@ -84,21 +84,21 @@ namespace LoRaWan.NetworkServer
            
         }
 
-        async Task InitCallBack(bool bypassCertVerification)
+        async Task InitCallBack()
         {
             try
             {
                 
    
 
-                Console.WriteLine("Setting up MqttTransportSettings");
-                MqttTransportSettings mqttSetting = new MqttTransportSettings(TransportType.Mqtt_Tcp_Only);
-                // During dev you might want to bypass the cert verification. It is highly recommended to verify certs systematically in production
-                if (bypassCertVerification)
-                {
-                    mqttSetting.RemoteCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) => true;
-                }
-                ITransportSettings[] settings = { mqttSetting };
+               
+                ITransportSettings transportSettings = new AmqpTransportSettings(TransportType.Amqp_Tcp_Only);
+                //// During dev you might want to bypass the cert verification. It is highly recommended to verify certs systematically in production
+                //if (bypassCertVerification)
+                //{
+                //    mqttSetting.RemoteCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) => true;
+                //}
+                ITransportSettings[] settings = { transportSettings };
 
                 //if running as Edge module
                 if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("IOTEDGE_APIVERSION")))
@@ -127,6 +127,8 @@ namespace LoRaWan.NetworkServer
                     {
                         Console.WriteLine("Module twin facadeAuthCode not exist");
                     }
+
+                    await ioTHubModuleClient.SetDesiredPropertyUpdateCallbackAsync(onDesiredPropertiesUpdate, null);
                 }
                 //running as non edge module for test and debugging
                 else
@@ -136,9 +138,9 @@ namespace LoRaWan.NetworkServer
                 }
 
 
-                Console.WriteLine("Registering callback for module twin update...");
+               
                 // Attach callback for Twin desired properties updates
-               // await ioTHubModuleClient.SetDesiredPropertyUpdateCallbackAsync(onDesiredPropertiesUpdate, null);
+              
             }
             catch (Exception ex)
             {
@@ -166,26 +168,19 @@ namespace LoRaWan.NetworkServer
             {
                 foreach (Exception exception in ex.InnerExceptions)
                 {
-                    Console.WriteLine();
+                    
                     Console.WriteLine("Error when receiving desired property: {0}", exception);
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine();
+               
                 Console.WriteLine("Error when receiving desired property: {0}", ex.Message);
             }
             return Task.CompletedTask;
         }
 
-        //todo ronnie remove the http logger once routing works correctly
-        //private static void LogMessage(string logJson)
-        //{
-        //    var content = new StringContent(logJson, Encoding.UTF8, "application/json");
-        //    HttpClient httpClient = new HttpClient();
-        //    httpClient.PostAsync("http://cehackpi1:3427/message", content);
-        //}
-
+       
         public void Dispose()
         {
 

@@ -4,6 +4,7 @@ using PacketManager;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -74,7 +75,7 @@ namespace LoRaWan.NetworkServer
             byte[] udpMsgForPktForwarder = new byte[0];
             string devAddr = BitConverter.ToString(loraMessage.payloadMessage.devAddr).Replace("-", "");
 
-            Console.WriteLine($"Processing message from device: {devAddr}");          
+                    
 
             Cache.TryGetValue(devAddr, out LoraDeviceInfo loraDeviceInfo);
 
@@ -82,7 +83,7 @@ namespace LoRaWan.NetworkServer
 
             if (loraDeviceInfo == null)
             {
-                Console.WriteLine("No cache");
+                Console.WriteLine($"Processing message from device: {devAddr} not in cache"); 
 
                 loraDeviceInfo = await LoraDeviceInfoManager.GetLoraDeviceInfoAsync(devAddr);         
 
@@ -91,8 +92,8 @@ namespace LoRaWan.NetworkServer
             }
             else
             {
-                Console.WriteLine("From cache");
-              
+                Console.WriteLine($"Processing message from device: {devAddr} in cache");
+
             }
 
       
@@ -112,8 +113,7 @@ namespace LoRaWan.NetworkServer
 
                     }
 
-                    //start checking for new c2d message asap 
-                    Message c2dMsg = await loraDeviceInfo.HubSender.GetMessageAsync(TimeSpan.FromMilliseconds(10));
+                  
 
                    
 
@@ -158,8 +158,13 @@ namespace LoRaWan.NetworkServer
                         Console.WriteLine($"Sending message '{jsonDataPayload}' to hub...");
 
                         await loraDeviceInfo.HubSender.SendMessageAsync(iotHubMsg);
-                        
-                       
+
+
+                        //todo ronnie remove this once the routings to visualizer is fixed
+                        LogMessage(iotHubMsg);
+
+
+
 
 
                     }
@@ -168,17 +173,22 @@ namespace LoRaWan.NetworkServer
                         Console.WriteLine($"Invalid frame counter, msg: {fcntup} server: {loraDeviceInfo.FCntUp}");
                     }
 
-                    //check again for messages just before sending the ack
-                    if (c2dMsg == null)
-                        c2dMsg = await loraDeviceInfo.HubSender.GetMessageAsync(TimeSpan.FromMilliseconds(10));
+                    
+                    //start checking for new c2d message  
+                    Message c2dMsg = await loraDeviceInfo.HubSender.GetMessageAsync(TimeSpan.FromMilliseconds(100));
 
                     byte[] bytesC2dMsg = null;
-                    //check if we got a c2d message to be added in the ack message
+                    byte[] fport = null;
+                    //check if we got a c2d message to be added in the ack message and preprare the message
                     if (c2dMsg != null)
                     {
                         bytesC2dMsg = c2dMsg.GetBytes();
+                        fport = new byte[1] { 1 };
+
                         if (bytesC2dMsg != null)
                             Console.WriteLine($"C2D message: {Encoding.UTF8.GetString(bytesC2dMsg)}");
+
+                        Array.Reverse(bytesC2dMsg);
                     }
 
 
@@ -211,23 +221,29 @@ namespace LoRaWan.NetworkServer
 
                         double _freq = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0].freq;
 
-                        long _tmst = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0].tmst;
+                        uint txDelay = 0;
+
+                       
+
+                        //todo ronnie need to test better how to move to the second window
+                        //if we are already longer than 900 mssecond move to the 2 second window
+                        //if ((DateTime.Now - startTimeProcessing) > TimeSpan.FromMilliseconds(900))
+                        //    txDelay = 1000000;
+
+                        long _tmst = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0].tmst + txDelay;
+
 
                         Byte[] devAddrCorrect = new byte[4];
                         Array.Copy(loraMessage.payloadMessage.devAddr, devAddrCorrect, 4);
                         Array.Reverse(devAddrCorrect);
 
-                        
-
                         LoRaPayloadStandardData ackLoRaMessage = new LoRaPayloadStandardData(StringToByteArray("A0"),
                             devAddrCorrect,
-                             new byte[1] { 32 },
-                             BitConverter.GetBytes(loraDeviceInfo.FCntDown)
-                             ,
+                            new byte[1] { 32 },
+                            BitConverter.GetBytes(loraDeviceInfo.FCntDown),
                             null,
-                            null,
-                            bytesC2dMsg
-                            ,
+                            fport,
+                            bytesC2dMsg,
                             1);
 
 
@@ -243,8 +259,13 @@ namespace LoRaWan.NetworkServer
                      
                         udpMsgForPktForwarder = ackMessage.physicalPayload.GetMessage();
 
-                        if (c2dMsg != null)
+                        //todo ronnie implement a simple gateway ack in case that we are > the 2 second window
+                        //confirm the message to iot hub only if we are in time for a delivery
+                        if (c2dMsg != null && ((DateTime.Now - startTimeProcessing) <= TimeSpan.FromMilliseconds(900)))
+                        {
                             _ = loraDeviceInfo.HubSender.CompleteAsync(c2dMsg);
+                            Console.WriteLine("Complete the c2d msg to IoT Hub");
+                        }
 
 
 
@@ -263,7 +284,7 @@ namespace LoRaWan.NetworkServer
                 Console.WriteLine($"Ignore message because is not our device");
             }
 
-            Console.WriteLine($"Total processing time: {DateTime.Now - startTimeProcessing}");
+            Console.WriteLine($"Processing time: {DateTime.Now - startTimeProcessing}");
 
             return udpMsgForPktForwarder;
         }
@@ -385,6 +406,15 @@ namespace LoRaWan.NetworkServer
                              .ToArray();
 
         }
+
+        //todo ronnie remove the http logger once routing works correctly
+        private void LogMessage(string logJson)
+        {
+            var content = new StringContent(logJson, Encoding.UTF8, "application/json");
+            HttpClient httpClient = new HttpClient();
+            httpClient.PostAsync("http://172.17.0.1:3427/message", content);
+        }
+
 
         public void Dispose()
         {
