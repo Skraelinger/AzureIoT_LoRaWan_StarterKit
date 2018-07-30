@@ -276,6 +276,10 @@ namespace LoRaWan.NetworkServer
                             
                             _ = loraDeviceInfo.HubSender.UpdateFcntAsync(loraDeviceInfo.FCntUp, null);
 
+
+                            //put back the c2d message to the queue for the next round
+                            _ = loraDeviceInfo.HubSender.AbandonAsync(c2dMsg);
+
                             Console.WriteLine("Too late for down message, sending only ACK to gateway");
                         }
 

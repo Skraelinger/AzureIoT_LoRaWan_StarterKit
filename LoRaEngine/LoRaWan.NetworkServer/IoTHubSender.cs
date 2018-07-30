@@ -36,7 +36,7 @@ namespace LoRaWan.NetworkServer
                     string partConnection = createIoTHubConnectionString();
                     string deviceConnectionStr = $"{partConnection}DeviceId={DevEUI};SharedAccessKey={PrimaryKey}";
 
-                    deviceClient = DeviceClient.CreateFromConnectionString(deviceConnectionStr, TransportType.Mqtt_Tcp_Only);
+                    deviceClient = DeviceClient.CreateFromConnectionString(deviceConnectionStr, TransportType.Amqp_Tcp_Only);
 
                     //we set the retry only when sending msgs
                     deviceClient.SetRetryPolicy(new NoRetry());
@@ -136,6 +136,13 @@ namespace LoRaWan.NetworkServer
         {
           
             await deviceClient.CompleteAsync(message);          
+
+        }
+
+        public async Task AbandonAsync(Message message)
+        {
+
+            await deviceClient.AbandonAsync(message);
 
         }
 
