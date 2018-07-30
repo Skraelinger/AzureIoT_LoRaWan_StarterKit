@@ -27,6 +27,9 @@ namespace LoraKeysManagerFacade
         public string NetId;
         public bool IsOurDevice = false;
         public bool IsJoinValid = false;
+        public UInt16 FCntUp;
+        public UInt16 FCntDown;
+        //todo ronnie add confirmed or unconfirmed down preference settings
     }
 
   
@@ -85,7 +88,7 @@ namespace LoraKeysManagerFacade
 
                 RegistryManager registryManager = RegistryManager.CreateFromConnectionString(connectionString);
 
-                //Currently registry manageer query only support select so we need to check for injection on the devaddr only for "'"
+                //Currently registry manager query only support select so we need to check for injection on the devaddr only for "'"
                 //TODO check for sql injection
                 devAddr =devAddr.Replace('\'',' ');
 
@@ -107,6 +110,10 @@ namespace LoraKeysManagerFacade
                             loraDeviceInfo.AppSKey = twin.Tags["AppSKey"].Value;
                         loraDeviceInfo.NwkSKey = twin.Tags["NwkSKey"].Value;
                         loraDeviceInfo.IsOurDevice = true;
+                        if (twin.Properties.Reported.Contains("FCntUp"))
+                            loraDeviceInfo.FCntUp = twin.Properties.Reported["FCntUp"];
+                        if (twin.Properties.Reported.Contains("FCntDown"))
+                            loraDeviceInfo.FCntDown = twin.Properties.Reported["FCntDown"];
                     }
                 }
 
