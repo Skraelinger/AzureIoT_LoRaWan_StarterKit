@@ -114,11 +114,7 @@ namespace LoRaWan.NetworkServer
 
                     }
 
-                  
 
-                   
-
-                   
                     UInt16 fcntup = BitConverter.ToUInt16(((LoRaPayloadStandardData)loraMessage.payloadMessage).fcnt, 0);
 
                     //todo ronnie add tollernace range
@@ -181,12 +177,13 @@ namespace LoRaWan.NetworkServer
                         Console.WriteLine($"Invalid frame counter, msg: {fcntup} server: {loraDeviceInfo.FCntUp}");
                     }
 
-                    //start checking for new c2d message 
+                    //start checking for new c2d message, we do it even if the fcnt is invalid so we suppor replying to the ConfirmedDataUp
                     //todo ronnie we may lover the timeout or should we wait up to 1 sec?
                     c2dMsg = await loraDeviceInfo.HubSender.GetMessageAsync(TimeSpan.FromMilliseconds(100));
 
                     byte[] bytesC2dMsg = null;
                     byte[] fport = null;
+
                     //check if we got a c2d message to be added in the ack message and preprare the message
                     if (c2dMsg != null)
                     {
@@ -200,9 +197,92 @@ namespace LoRaWan.NetworkServer
                     }
 
 
+                    //if confirmation or cloud to device msg send down the message
+                    if (loraMessage.loRaMessageType == LoRaMessageType.ConfirmedDataUp || c2dMsg!=null )
+                    {
+                        //check if we are not too late for the 1 and 2 window
+                        if (((DateTime.Now - startTimeProcessing) <= TimeSpan.FromMilliseconds(1900)))
+                        {
 
-                    //if no confirmation and no downstream messages send ack only
-                    if (loraMessage.loRaMessageType == LoRaMessageType.UnconfirmedDataUp && c2dMsg ==null )
+                            //increase the fcnt down and save it to iot hub twins
+                            loraDeviceInfo.FCntDown++;
+
+                            Console.WriteLine($"Down frame counter: {loraDeviceInfo.FCntDown}");
+
+
+                            //Saving both fcnts to twins
+                            _ = loraDeviceInfo.HubSender.UpdateFcntAsync(loraDeviceInfo.FCntUp, loraDeviceInfo.FCntDown);
+
+                            var _datr = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0].datr;
+
+                            uint _rfch = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0].rfch;
+
+                            double _freq = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0].freq;
+
+                            uint txDelay = 0;
+
+
+                            //todo ronnie need to use fixed freq for 2 window and check also for US and other freq
+                            //if we are already longer than 900 mssecond move to the 2 second window
+                            //if ((DateTime.Now - startTimeProcessing) > TimeSpan.FromMilliseconds(900))
+                            //    txDelay = 1000000;
+
+                            long _tmst = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0].tmst + txDelay;
+
+
+                            Byte[] devAddrCorrect = new byte[4];
+                            Array.Copy(loraMessage.payloadMessage.devAddr, devAddrCorrect, 4);
+                            Array.Reverse(devAddrCorrect);
+
+                            //todo mik check what is the A0
+                            LoRaPayloadStandardData ackLoRaMessage = new LoRaPayloadStandardData(StringToByteArray("A0"),
+                                devAddrCorrect,
+                                new byte[1] { 32 },
+                                BitConverter.GetBytes(loraDeviceInfo.FCntDown),
+                                null,
+                                fport,
+                                bytesC2dMsg,
+                                1);
+
+
+                            ackLoRaMessage.PerformEncryption(loraDeviceInfo.AppSKey);
+                            ackLoRaMessage.SetMic(loraDeviceInfo.NwkSKey);
+
+
+
+                            byte[] rndToken = new byte[2];
+                            Random rnd = new Random();
+                            rnd.NextBytes(rndToken);
+
+                            //todo ronnie should check the device twin preference if using confirmed or unconfirmed down
+                            LoRaMessage ackMessage = new LoRaMessage(ackLoRaMessage, LoRaMessageType.ConfirmedDataDown, rndToken, _datr, 0, _freq, _tmst);
+
+                            udpMsgForPktForwarder = ackMessage.physicalPayload.GetMessage();
+
+
+                            //confirm the message to iot hub only if we are in time for a delivery
+                            if (c2dMsg != null)
+                            {
+                                _ = loraDeviceInfo.HubSender.CompleteAsync(c2dMsg);
+                                Console.WriteLine("Complete the c2d msg to IoT Hub");
+                            }
+
+                        }
+                        else
+                        {
+                            PhysicalPayload pushAck = new PhysicalPayload(loraMessage.physicalPayload.token, PhysicalIdentifier.PUSH_ACK, null);
+                            udpMsgForPktForwarder = pushAck.GetMessage();
+
+                            
+                            _ = loraDeviceInfo.HubSender.UpdateFcntAsync(loraDeviceInfo.FCntUp, null);
+
+                            Console.WriteLine("Too late for down message, sending only ACK to gateway");
+                        }
+
+
+                    }
+                    //No ack requested and no c2d message we send the udp ack only to the gateway
+                    else if(loraMessage.loRaMessageType == LoRaMessageType.UnconfirmedDataUp && c2dMsg == null)
                     {
 
                         PhysicalPayload pushAck = new PhysicalPayload(loraMessage.physicalPayload.token, PhysicalIdentifier.PUSH_ACK, null);
@@ -211,76 +291,6 @@ namespace LoRaWan.NetworkServer
                         _ = loraDeviceInfo.HubSender.UpdateFcntAsync(loraDeviceInfo.FCntUp, null);
 
                     } 
-                    //if confirmation or cloud to device msg send down the message
-                    else if (loraMessage.loRaMessageType == LoRaMessageType.ConfirmedDataUp || c2dMsg!=null )
-                    {
-
-                        //increase the fcnt down and save it to iot hub twins
-                        loraDeviceInfo.FCntDown++;
-
-                        Console.WriteLine($"Down frame counter: {loraDeviceInfo.FCntDown}");
-
-                        //Saving both fcnts to twins
-                        _= loraDeviceInfo.HubSender.UpdateFcntAsync(loraDeviceInfo.FCntUp, loraDeviceInfo.FCntDown);
-
-
-                        var _datr = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0].datr;
-
-                        uint _rfch = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0].rfch;
-
-                        double _freq = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0].freq;
-
-                        uint txDelay = 0;
-
-                       
-                        //todo ronnie need to use fixed freq for 2 window and check also for US and other freq
-                        //if we are already longer than 900 mssecond move to the 2 second window
-                        //if ((DateTime.Now - startTimeProcessing) > TimeSpan.FromMilliseconds(900))
-                        //    txDelay = 1000000;
-
-                        long _tmst = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0].tmst + txDelay;
-
-
-                        Byte[] devAddrCorrect = new byte[4];
-                        Array.Copy(loraMessage.payloadMessage.devAddr, devAddrCorrect, 4);
-                        Array.Reverse(devAddrCorrect);
-
-                        //todo mik check what is the A0
-                        LoRaPayloadStandardData ackLoRaMessage = new LoRaPayloadStandardData(StringToByteArray("A0"),
-                            devAddrCorrect,
-                            new byte[1] { 32 },
-                            BitConverter.GetBytes(loraDeviceInfo.FCntDown),
-                            null,
-                            fport,
-                            bytesC2dMsg,
-                            1);
-
-
-                        ackLoRaMessage.PerformEncryption(loraDeviceInfo.AppSKey);
-                        ackLoRaMessage.SetMic(loraDeviceInfo.NwkSKey);
-
-
-
-                        byte[] rndToken = new byte[2];
-                        Random rnd = new Random();
-                        rnd.NextBytes(rndToken);
-
-                        //todo ronnie should check the device twin preference if using confirmed or unconfirmed down
-                        LoRaMessage ackMessage = new LoRaMessage(ackLoRaMessage, LoRaMessageType.ConfirmedDataDown, rndToken, _datr, 0, _freq, _tmst);
-                     
-                        udpMsgForPktForwarder = ackMessage.physicalPayload.GetMessage();
-
-                        //todo ronnie implement a simple gateway ack in case that we are > the 2 second window and we should complete only when we receive back the TX ACK for this msg.
-                        //confirm the message to iot hub only if we are in time for a delivery
-                        if (c2dMsg != null && ((DateTime.Now - startTimeProcessing) <= TimeSpan.FromMilliseconds(900)))
-                        {
-                            _ = loraDeviceInfo.HubSender.CompleteAsync(c2dMsg);
-                            Console.WriteLine("Complete the c2d msg to IoT Hub");
-                        }
-
-
-
-                    }
 
                 }
                 else
