@@ -191,7 +191,40 @@ namespace AESDemo
             //{
             //    Console.Write("Nok");
             //}
+<<<<<<< HEAD
 
+=======
+            byte[] mhdr = new byte[1];
+            mhdr[0] = 128;
+            byte[] devAddr = new byte[4]
+                {4,3,2,1
+                };
+
+            byte[] fctrl = new byte[1]{
+                0 };
+            byte[] fcnt = new byte[2]{
+                0,0 };
+            byte[] fport = new byte[1]
+            {
+                    10
+            };
+            byte[] frmPayload = new byte[4]
+            {
+                4,3,2,1
+            };
+
+            var appkey = new byte[16] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
+            var nwkkey = new byte[16] { 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1 };
+            Array.Reverse(appkey);
+            Array.Reverse(nwkkey);
+           
+            //LoRaPayloadStandardData lora = new LoRaPayloadStandardData(mhdr, devAddr, fctrl, fcnt, null, fport, frmPayload);
+            //lora.PerformEncryption(BitConverter.ToString(appkey).Replace("-", ""));
+            //lora.SetMic(BitConverter.ToString(nwkkey).Replace("-", ""));
+            //var mess = lora.ToMessage();
+            Console.Read();
+            Console.Read();
+>>>>>>> 261f679... bug fixes
 
         }
     }

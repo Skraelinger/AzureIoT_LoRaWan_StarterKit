@@ -29,6 +29,7 @@ namespace LoraKeysManagerFacade
         public bool IsJoinValid = false;
         public UInt16 FCntUp;
         public UInt16 FCntDown;
+        //todo ronnie add confirmed or unconfirmed down preference settings
     }
 
   
@@ -87,7 +88,7 @@ namespace LoraKeysManagerFacade
 
                 RegistryManager registryManager = RegistryManager.CreateFromConnectionString(connectionString);
 
-                //Currently registry manageer query only support select so we need to check for injection on the devaddr only for "'"
+                //Currently registry manager query only support select so we need to check for injection on the devaddr only for "'"
                 //TODO check for sql injection
                 devAddr =devAddr.Replace('\'',' ');
 

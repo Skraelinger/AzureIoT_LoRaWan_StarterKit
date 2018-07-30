@@ -74,8 +74,9 @@ namespace LoRaWan.NetworkServer
         {
             byte[] udpMsgForPktForwarder = new byte[0];
             string devAddr = BitConverter.ToString(loraMessage.payloadMessage.devAddr).Replace("-", "");
+            Message c2dMsg= null;
 
-                    
+
 
             Cache.TryGetValue(devAddr, out LoraDeviceInfo loraDeviceInfo);
 
@@ -117,7 +118,7 @@ namespace LoRaWan.NetworkServer
 
                    
 
-                    //todo ronnie double check the fcnt logic
+                   
                     UInt16 fcntup = BitConverter.ToUInt16(((LoRaPayloadStandardData)loraMessage.payloadMessage).fcnt, 0);
 
                     //todo ronnie add tollernace range
@@ -125,7 +126,7 @@ namespace LoRaWan.NetworkServer
                     if (fcntup > loraDeviceInfo.FCntUp || (fcntup==1 && String.IsNullOrEmpty(loraDeviceInfo.AppEUI)))
                     {
                         Console.WriteLine($"Valid frame counter, msg: {fcntup} server: {loraDeviceInfo.FCntUp}");
-                        loraDeviceInfo.FCntUp = fcntup;
+                        
 
                         string decryptedMessage = null;
                         try
@@ -146,9 +147,12 @@ namespace LoRaWan.NetworkServer
 
                         string jsonDataPayload = LoraDecoders.DecodeMessage(decryptedMessage);
 
+
+                        //todo ronnie we may add these fields to rxPk?
                         fullPayload.data = JObject.Parse(jsonDataPayload);
                         fullPayload.EUI = loraDeviceInfo.DevEUI;
-                        fullPayload.edgets = (Int32)(DateTime.UtcNow.Subtract(new DateTime(1970, 1, 1))).TotalSeconds;
+                        //todo check what the other ts are if milliseconds or seconds
+                        fullPayload.edgets = (Int32)(startTimeProcessing.Subtract(new DateTime(1970, 1, 1))).TotalMilliseconds;
 
 
                         string iotHubMsg = fullPayload.ToString(Newtonsoft.Json.Formatting.None);
@@ -159,12 +163,16 @@ namespace LoRaWan.NetworkServer
 
                         await loraDeviceInfo.HubSender.SendMessageAsync(iotHubMsg);
 
+                        loraDeviceInfo.FCntUp = fcntup;
+
 
                         //todo ronnie remove this once the routings to visualizer is fixed
-                        LogMessage(iotHubMsg);
+                        if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("USE_SOCKETS")))
+                            if(bool.Parse(Environment.GetEnvironmentVariable("USE_SOCKETS")))
+                                LogMessage(iotHubMsg);
 
 
-
+                      
 
 
                     }
@@ -173,9 +181,9 @@ namespace LoRaWan.NetworkServer
                         Console.WriteLine($"Invalid frame counter, msg: {fcntup} server: {loraDeviceInfo.FCntUp}");
                     }
 
-                    
-                    //start checking for new c2d message  
-                    Message c2dMsg = await loraDeviceInfo.HubSender.GetMessageAsync(TimeSpan.FromMilliseconds(100));
+                    //start checking for new c2d message 
+                    //todo ronnie we may lover the timeout or should we wait up to 1 sec?
+                    c2dMsg = await loraDeviceInfo.HubSender.GetMessageAsync(TimeSpan.FromMilliseconds(100));
 
                     byte[] bytesC2dMsg = null;
                     byte[] fport = null;
@@ -190,6 +198,7 @@ namespace LoRaWan.NetworkServer
 
                         Array.Reverse(bytesC2dMsg);
                     }
+
 
 
                     //if no confirmation and no downstream messages send ack only
@@ -225,7 +234,7 @@ namespace LoRaWan.NetworkServer
 
                        
 
-                        //todo ronnie need to test better how to move to the second window
+                        //todo ronnie need to use fixed freq for 2 window and check also for US and other freq
                         //if we are already longer than 900 mssecond move to the 2 second window
                         //if ((DateTime.Now - startTimeProcessing) > TimeSpan.FromMilliseconds(900))
                         //    txDelay = 1000000;
@@ -237,6 +246,7 @@ namespace LoRaWan.NetworkServer
                         Array.Copy(loraMessage.payloadMessage.devAddr, devAddrCorrect, 4);
                         Array.Reverse(devAddrCorrect);
 
+                        //todo mik check what is the A0
                         LoRaPayloadStandardData ackLoRaMessage = new LoRaPayloadStandardData(StringToByteArray("A0"),
                             devAddrCorrect,
                             new byte[1] { 32 },
@@ -247,7 +257,7 @@ namespace LoRaWan.NetworkServer
                             1);
 
 
-                        var s = ackLoRaMessage.PerformEncryption(loraDeviceInfo.AppSKey);
+                        ackLoRaMessage.PerformEncryption(loraDeviceInfo.AppSKey);
                         ackLoRaMessage.SetMic(loraDeviceInfo.NwkSKey);
 
 
@@ -255,11 +265,13 @@ namespace LoRaWan.NetworkServer
                         byte[] rndToken = new byte[2];
                         Random rnd = new Random();
                         rnd.NextBytes(rndToken);
+
+                        //todo ronnie should check the device twin preference if using confirmed or unconfirmed down
                         LoRaMessage ackMessage = new LoRaMessage(ackLoRaMessage, LoRaMessageType.ConfirmedDataDown, rndToken, _datr, 0, _freq, _tmst);
                      
                         udpMsgForPktForwarder = ackMessage.physicalPayload.GetMessage();
 
-                        //todo ronnie implement a simple gateway ack in case that we are > the 2 second window
+                        //todo ronnie implement a simple gateway ack in case that we are > the 2 second window and we should complete only when we receive back the TX ACK for this msg.
                         //confirm the message to iot hub only if we are in time for a delivery
                         if (c2dMsg != null && ((DateTime.Now - startTimeProcessing) <= TimeSpan.FromMilliseconds(900)))
                         {

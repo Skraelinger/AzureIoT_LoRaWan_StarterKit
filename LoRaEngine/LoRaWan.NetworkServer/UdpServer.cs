@@ -58,7 +58,7 @@ namespace LoRaWan.NetworkServer
                 //Console.WriteLine($"UDP message received ({receivedResults.Buffer.Length} bytes) from port: {receivedResults.RemoteEndPoint.Port}");
 
              
-                //todo ronnie the ack comes in another port so I check if the msg size is 12 to detect ack but we need a better way
+                //Todo check that is an ack only, we could do a better check in a future verstion
                 if (receivedResults.Buffer.Length == 12)
                 {
                     remoteLoRaAggregatorIp = receivedResults.RemoteEndPoint.Address;
