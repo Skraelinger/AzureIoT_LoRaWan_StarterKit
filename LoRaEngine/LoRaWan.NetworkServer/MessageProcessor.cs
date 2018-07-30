@@ -233,7 +233,6 @@ namespace LoRaWan.NetworkServer
                         uint txDelay = 0;
 
                        
-
                         //todo ronnie need to use fixed freq for 2 window and check also for US and other freq
                         //if we are already longer than 900 mssecond move to the 2 second window
                         //if ((DateTime.Now - startTimeProcessing) > TimeSpan.FromMilliseconds(900))
