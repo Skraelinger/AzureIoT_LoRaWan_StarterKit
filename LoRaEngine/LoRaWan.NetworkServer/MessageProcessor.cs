@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 
@@ -202,6 +203,11 @@ namespace LoRaWan.NetworkServer
                             if (bytesC2dMsg != null)
                                 Console.WriteLine($"C2D message: {Encoding.UTF8.GetString(bytesC2dMsg)}");
 
+                            //todo ronnie implement a better max payload size by datarate
+                            //cut to the max payload of lora for any datarate
+                            if(bytesC2dMsg.Length>51)
+                                Array.Resize(ref bytesC2dMsg, 51);
+
                             Array.Reverse(bytesC2dMsg);
                         }
 
@@ -230,11 +236,19 @@ namespace LoRaWan.NetworkServer
 
                                 uint txDelay = 0;
 
+                               
 
-                                //todo ronnie need to use fixed freq for 2 window and check also for US and other freq
+                                //todo ronnie & mik check for US and other freq from env variable?
                                 //if we are already longer than 900 mssecond move to the 2 second window
-                                //if ((DateTime.Now - startTimeProcessing) > TimeSpan.FromMilliseconds(900))
-                                //    txDelay = 1000000;
+                                if ((DateTime.Now - startTimeProcessing) > TimeSpan.FromMilliseconds(900))
+                                {
+                                    //using EU fix DR for RX2
+                                    _freq = 869.525;
+                                    _datr = "SF12BW125";
+
+                                    txDelay = 1000000;
+                                }
+
 
                                 long _tmst = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0].tmst + txDelay;
 
