@@ -93,11 +93,7 @@ namespace LoRaWan.NetworkServer
 
                
                 ITransportSettings transportSettings = new AmqpTransportSettings(TransportType.Amqp_Tcp_Only);
-                //// During dev you might want to bypass the cert verification. It is highly recommended to verify certs systematically in production
-                //if (bypassCertVerification)
-                //{
-                //    mqttSetting.RemoteCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) => true;
-                //}
+             
                 ITransportSettings[] settings = { transportSettings };
 
                 //if running as Edge module
@@ -114,6 +110,8 @@ namespace LoRaWan.NetworkServer
                     try
                     {
                         LoraDeviceInfoManager.FacadeServerUrl = moduleTwinCollection["FacadeServerUrl"];
+                        Console.WriteLine($"Facade function url: {LoraDeviceInfoManager.FacadeServerUrl}");
+
                     }
                     catch (ArgumentOutOfRangeException e)
                     {
@@ -130,6 +128,7 @@ namespace LoRaWan.NetworkServer
 
                     await ioTHubModuleClient.SetDesiredPropertyUpdateCallbackAsync(onDesiredPropertiesUpdate, null);
                 }
+                //todo ronnie what to do when not running as edge?
                 //running as non edge module for test and debugging
                 else
                 {              

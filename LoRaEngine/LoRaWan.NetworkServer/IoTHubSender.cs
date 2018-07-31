@@ -92,6 +92,8 @@ namespace LoRaWan.NetworkServer
             {
                 CreateDeviceClient();
 
+                Console.WriteLine($"Updating twins...");
+
                 //updating the framecount non blocking because not critical and takes quite a bit of time
                 TwinCollection prop;
                 if (FCntDown != null)
@@ -143,6 +145,13 @@ namespace LoRaWan.NetworkServer
         {
 
             await deviceClient.AbandonAsync(message);
+
+        }
+
+        public async Task OpenAsync()
+        {
+
+            await deviceClient.OpenAsync();
 
         }
 

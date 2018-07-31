@@ -22,6 +22,7 @@ namespace LoRaWan.NetworkServer
         public IoTHubSender HubSender;
         public UInt16 FCntUp;
         public UInt16 FCntDown;
+        public string GatewayID;
     }
 
 }
