@@ -236,15 +236,31 @@ namespace LoRaWan.NetworkServer
 
                                 uint txDelay = 0;
 
-                               
 
-                                //todo ronnie & mik check for US and other freq from env variable?
                                 //if we are already longer than 900 mssecond move to the 2 second window
-                                if ((DateTime.Now - startTimeProcessing) > TimeSpan.FromMilliseconds(900))
+                                //uncomment to force second windows usage
+                                //Thread.Sleep(901);
+                                if ((DateTime.Now - startTimeProcessing) > TimeSpan.FromMilliseconds(900) )
                                 {
-                                    //using EU fix DR for RX2
-                                    _freq = 869.525;
-                                    _datr = "SF12BW125";
+                                    if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("RX2_DATR")))
+                                    {
+                                        Console.WriteLine("using standard second receive windows");
+
+                                        //using EU fix DR for RX2
+                                        _freq = 869.525;
+                                        _datr = "SF12BW125";
+
+
+                                    }
+                                    //if specific twins are set, specify second channel to be as specified
+                                    else
+                                    {
+                                        
+                                        _freq = double.Parse(Environment.GetEnvironmentVariable("RX2_FREQ"));
+                                        _datr = Environment.GetEnvironmentVariable("RX2_DATR");
+                                        Console.WriteLine("using specific second receive windows freq : {0}, datr:{1}", _freq,_datr);
+
+                                    }
 
                                     txDelay = 1000000;
                                 }
@@ -405,7 +421,7 @@ namespace LoRaWan.NetworkServer
 
                 byte[] netId = StringToByteArray(joinLoraDeviceInfo.NetId);
 
-               
+
 
                 byte[] devAddr = StringToByteArray(joinLoraDeviceInfo.DevAddr);
 
@@ -429,8 +445,46 @@ namespace LoRaWan.NetworkServer
                 uint _rfch = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0].rfch;
 
                 double _freq = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0].freq;
+                //set tmst for the normal case
+                long _tmst = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0].tmst+ 5000000;
 
-                long _tmst = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0].tmst;
+                //uncomment to force second windows usage
+                //Thread.Sleep(4600-(int)(DateTime.Now - startTimeProcessing).TotalMilliseconds);
+                //in this case it's too late, we need to break
+                if ((DateTime.Now - startTimeProcessing) > TimeSpan.FromMilliseconds(6000))
+                {
+                    Console.WriteLine("Processing of the join request took too long, sending no message");
+                    var physicalResponse = new PhysicalPayload(loraMessage.physicalPayload.token, PhysicalIdentifier.PULL_RESP, null);
+                    
+                    return physicalResponse.GetMessage();
+                }
+                //in this case the second join windows must be used
+                else if ((DateTime.Now - startTimeProcessing) > TimeSpan.FromMilliseconds(4500))
+                {
+                    Console.WriteLine("Processing of the join request took too long, using second join accept receive windows");
+                    _tmst = ((UplinkPktFwdMessage)loraMessage.loraMetadata.fullPayload).rxpk[0].tmst + 6000000;
+                    if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("RX2_DATR")))
+                    {
+                        Console.WriteLine("using standard second receive windows for join request");
+
+                        //using EU fix DR for RX2
+                        _freq = 869.525;
+                        _datr = "SF12BW125";
+
+
+                    }
+                    //if specific twins are set, specify second channel to be as specified
+                    else
+                    {
+                        Console.WriteLine("using custom second receive windows for join request");
+
+                        _freq = double.Parse(Environment.GetEnvironmentVariable("RX2_FREQ"));
+                        _datr = Environment.GetEnvironmentVariable("RX2_DATR");
+                    }
+                  
+         
+                }
+              
 
                 LoRaMessage joinAcceptMessage = new LoRaMessage(loRaPayloadJoinAccept, LoRaMessageType.JoinAccept, loraMessage.physicalPayload.token, _datr, 0, _freq, _tmst);
 
