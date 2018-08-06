@@ -23,6 +23,9 @@ namespace LoRaWan.NetworkServer
                 case 'R':
                     sensorData = DecodeRotatorySensor(payload);
                     break;
+                case 'T':
+                    sensorData = DecodeTempSensor(payload);
+                    break;
                 default:
                     sensorData = "{\"error\": \"no decoder found\"}";
                     break;
@@ -47,6 +50,11 @@ namespace LoRaWan.NetworkServer
         {
             string value = result.Remove(0, 1);
             return String.Format("{{\"angle\": {0}}}", value);
+        }
+        private static string DecodeTempSensor(string result)
+        {
+            string value = result.Remove(0, 1);
+            return String.Format("{{\"temperature\": {0}}}", value);
         }
     }
 
