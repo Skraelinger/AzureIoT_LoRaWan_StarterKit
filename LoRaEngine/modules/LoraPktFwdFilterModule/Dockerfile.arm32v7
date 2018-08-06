@@ -1,0 +1,4 @@
+FROM microsoft/dotnet:2.0-runtime-stretch-arm32v7
+WORKDIR /app
+COPY . ./
+ENTRYPOINT ["./reset_lgw.sh","start"]
