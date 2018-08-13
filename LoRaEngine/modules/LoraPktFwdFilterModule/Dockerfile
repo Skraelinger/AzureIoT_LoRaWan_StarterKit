@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 FROM debian:stretch
 WORKDIR /app
 COPY . ./
