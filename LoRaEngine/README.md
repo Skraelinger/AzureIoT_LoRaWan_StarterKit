@@ -41,6 +41,8 @@ The following guide describes the necessary steps to build and deploy the LoRaEn
 CONTAINER_REGISTRY_USERNAME=myregistryrocks
 CONTAINER_REGISTRY_PASSWORD=ghjGD5jrK6667
 CONTAINER_REGISTRY_ADDRESS=myregistryrocks.azurecr.io
+FACADE_SERVER_URL=https://lorafacadefunctionrocks.azurewebsites.net/api/
+FACADE_AUTH_CODE=gkjhFGHFGGjhhg5645674==
 ```
 
 - Build network packet forwarder
@@ -50,7 +52,6 @@ Our LoraPktFwdFiltermodule packages the into an IoT Edge compatible docker conta
 The `lora_pkt_fwd` binary has to be copied `LoraPktFwdFiltermodule`directory.
 
 - Build and deploy entire solution (VsCode)
-
 
 ### SetUp Azure function facade:
 
