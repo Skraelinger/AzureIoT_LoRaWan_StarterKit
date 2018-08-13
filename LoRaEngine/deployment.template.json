@@ -86,8 +86,8 @@
     "LoRaWanNetworkSrvModule": {
       "properties.desired": {
         "schemaVersion": "1.0",
-        "FacadeServerUrl": "https://YOUR_FUNCTION.azurewebsites.net/api/",
-        "FacadeAuthCode": "YOUR_AUTH_CODE"
+        "FacadeServerUrl": "$FACADE_SERVER_URL",
+        "FacadeAuthCode": "$FACADE_AUTH_CODE"
       }
     }
   }
