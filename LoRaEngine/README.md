@@ -3,6 +3,8 @@
 A **.NET Standard 2.0** solution with the following projects:
 
 - **modules** - Azure IoT Edge modules.
+  - **LoraPktFwdFilterModule** packages the network forwarder into an IoT Edge compatible docker container. See https://github.com/Lora-net/packet_forwarder and https://github.com/Lora-net/lora_gateway.
+  - **LoRaWanNetworkSrvModule** - is the LoRaWAN network server implementation.
 - **LoraKeysManagerFacade** - An Azure function handling device provisioning (e.g. LoRa network join, OTAA) with Azure IoT Hub as persistence layer.
 - **LoRaDevTools** - library for dev tools
 
@@ -30,11 +32,11 @@ The following guide describes the necessary steps to build and deploy the LoRaEn
 
 Copy `Connection string` with owner policy applied:
 
-[Copy IoT Hub Connection string][../pictures/copyiothubstring.png]
+![Copy IoT Hub Connection string](../pictures/copyiothubstring.png)
 
 Now paste it into `Application settings` -> `Collection strings` as `IoTHubConnectionString`:
 
-[Paste IoT Hub Connection string][../pictures/createedgesolution.png]
+![Paste IoT Hub Connection string](../pictures/createedgesolution.png)
 
 - Configure your `.env` file with your [Azure Container registry](https://azure.microsoft.com/en-us/services/container-registry/) as well as the Facade access URL and credentials. Those variables will be used by our [Azure IoT Edge solution template](https://github.com/Skraelinger/AzureIoT_LoRaWan_StarterKit/blob/master/LoRaEngine/deployment.template.json)
 
@@ -64,11 +66,11 @@ We will use [Azure IoT Edge for Visual Studio Code](https://marketplace.visualst
 
 First, build an push the solution by right click [deployment.template.json](https://github.com/Skraelinger/AzureIoT_LoRaWan_StarterKit/blob/master/LoRaEngine/deployment.template.json) and select `Build and Push IoT Edge Solution`
 
-[VSCode: Build and push edge solution][../pictures/createedgesolution.png]
+![VSCode: Build and push edge solution](../pictures/createedgesolution.png)
 
 After that you can push the solution to your IoT Edge device by right clicking on the device and select `Create Deployment for single device`
 
-[VSCode: Deploy edge solution][../pictures/deployedge.png]
+![VSCode: Deploy edge solution](../pictures/deployedge.png)
 
 ### Provision LoRa leaf device
 
@@ -181,7 +183,7 @@ float getTemp()
 }
 ```
 
-To provising a device in Azure IoT Hub with these identifiers and capable to [decode](https://github.com/Skraelinger/AzureIoT_LoRaWan_StarterKit/blob/master/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoRaWan.NetworkServer/LoraDecoders.cs) temperature payload into Json you have to create a device with:
+To provisioning a device in Azure IoT Hub with these identifiers and capable to [decode](https://github.com/Skraelinger/AzureIoT_LoRaWan_StarterKit/blob/master/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoRaWan.NetworkServer/LoraDecoders.cs) temperature payload into Json you have to create a device with:
 
 Device Id: `47AAC86800430010` and Device Twin:
 
@@ -193,9 +195,9 @@ Device Id: `47AAC86800430010` and Device Twin:
 }
 ```
 
-[Create device in Azure IoT Hub][../pictures/createdevice.png]
+![Create device in Azure IoT Hub](../pictures/createdevice.png)
 
-[Set device twin in Azure IoT Hub][../pictures/createdevice.png]
+![Set device twin in Azure IoT Hub](../pictures/createdevice.png)
 
 ### Device to Cloud and Cloud to Device messaging in action
 
@@ -253,8 +255,8 @@ TX ACK RECEIVED
 }
 ```
 
-Note: an easy way to follow messages send from the device is again with VSCode: right click on the device in the browser -> `Start Monitoring D2C Message`.
+Note: an easy way to follow messages send from the device is again with VSCode: right click on the device in the explorer -> `Start Monitoring D2C Message`.
 
-You can even test sending Cloud-2-Device message (e.g. by VSCode right click on the device in the browser -> `Send C2D Message To Device`).
+You can even test sending Cloud-2-Device message (e.g. by VSCode right click on the device in the explorer -> `Send C2D Message To Device`).
 
 The Arduino example provided above will print the message on the console. Keep in mind that a [LoRaWAN Class A](https://www.thethingsnetwork.org/docs/lorawan/) device will only receive after a transmit, in our case every 30 seconds.
