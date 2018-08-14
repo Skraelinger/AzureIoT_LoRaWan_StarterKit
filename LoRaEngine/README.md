@@ -32,11 +32,11 @@ The following guide describes the necessary steps to build and deploy the LoRaEn
 
 Copy `Connection string` with owner policy applied:
 
-![Copy IoT Hub Connection string](../pictures/copyiothubstring.png)
+![Copy IoT Hub Connection string](../pictures/CopyIoTHubString.PNG)
 
 Now paste it into `Application settings` -> `Collection strings` as `IoTHubConnectionString`:
 
-![Paste IoT Hub Connection string](../pictures/createedgesolution.png)
+![Paste IoT Hub Connection string](../pictures/FunctionPasteString.PNG)
 
 - Configure your `.env` file with your [Azure Container registry](https://azure.microsoft.com/en-us/services/container-registry/) as well as the Facade access URL and credentials. Those variables will be used by our [Azure IoT Edge solution template](https://github.com/Skraelinger/AzureIoT_LoRaWan_StarterKit/blob/master/LoRaEngine/deployment.template.json)
 
@@ -66,11 +66,11 @@ We will use [Azure IoT Edge for Visual Studio Code](https://marketplace.visualst
 
 First, build an push the solution by right click [deployment.template.json](https://github.com/Skraelinger/AzureIoT_LoRaWan_StarterKit/blob/master/LoRaEngine/deployment.template.json) and select `Build and Push IoT Edge Solution`
 
-![VSCode: Build and push edge solution](../pictures/createedgesolution.png)
+![VSCode: Build and push edge solution](../pictures/CreateEdgeSolution.PNG)
 
 After that you can push the solution to your IoT Edge device by right clicking on the device and select `Create Deployment for single device`
 
-![VSCode: Deploy edge solution](../pictures/deployedge.png)
+![VSCode: Deploy edge solution](../pictures/DeployEdge.PNG)
 
 ### Provision LoRa leaf device
 
@@ -195,9 +195,9 @@ Device Id: `47AAC86800430010` and Device Twin:
 }
 ```
 
-![Create device in Azure IoT Hub](../pictures/createdevice.png)
+![Create device in Azure IoT Hub](../pictures/CreateDevice.PNG)
 
-![Set device twin in Azure IoT Hub](../pictures/createdevice.png)
+![Set device twin in Azure IoT Hub](../pictures/DeviceTwin.PNG)
 
 ### Device to Cloud and Cloud to Device messaging in action
 
