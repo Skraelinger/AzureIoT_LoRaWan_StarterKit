@@ -28,7 +28,6 @@ namespace LoRaWan.NetworkServer
             string[] values = result.Split(':');
             return String.Format("{{\"heartrate\": {0} , \"temperature\": {1}}}", values[0], values[1]);
         }
-
         private static string DecoderGpsSensor(string result)
         {
             string[] values = result.Split(':');
@@ -38,10 +37,9 @@ namespace LoRaWan.NetworkServer
         {         
             return String.Format("{{\"angle\": {0}}}", result);
         }
-        private static string DecodeTempSensor(string result)
+        private static string DecoderTemperatureSensor(string result)
         {
-            string value = result.Remove(0, 1);
-            return String.Format("{{\"temperature\": {0}}}", value);
+            return String.Format("{{\"temperature\": {0}}}", result);
         }
     }
 
