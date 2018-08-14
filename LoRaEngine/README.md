@@ -3,7 +3,7 @@
 A **.NET Standard 2.0** solution with the following projects:
 
 - **modules** - Azure IoT Edge modules.
-  - **LoraPktFwdFilterModule** packages the network forwarder into an IoT Edge compatible docker container. See https://github.com/Lora-net/packet_forwarder and https://github.com/Lora-net/lora_gateway.
+  - **LoRaWanPktFwdModule** packages the network forwarder into an IoT Edge compatible docker container. See https://github.com/Lora-net/packet_forwarder and https://github.com/Lora-net/lora_gateway.
   - **LoRaWanNetworkSrvModule** - is the LoRaWAN network server implementation.
 - **LoraKeysManagerFacade** - An Azure function handling device provisioning (e.g. LoRa network join, OTAA) with Azure IoT Hub as persistence layer.
 - **LoRaDevTools** - library for dev tools
@@ -32,20 +32,24 @@ The following guide describes the necessary steps to build and deploy the LoRaEn
 
 Copy `Connection string` with owner policy applied:
 
-![Copy IoT Hub Connection string](../pictures/CopyIoTHubString.PNG)
+![Copy IoT Hub Connection string](/pictures/CopyIoTHubString.PNG)
 
 Now paste it into `Application settings` -> `Collection strings` as `IoTHubConnectionString`:
 
-![Paste IoT Hub Connection string](../pictures/FunctionPasteString.PNG)
+![Paste IoT Hub Connection string](/pictures/FunctionPasteString.PNG)
 
-- Configure your `.env` file with your [Azure Container registry](https://azure.microsoft.com/en-us/services/container-registry/) as well as the Facade access URL and credentials. Those variables will be used by our [Azure IoT Edge solution template](https://github.com/Skraelinger/AzureIoT_LoRaWan_StarterKit/blob/master/LoRaEngine/deployment.template.json)
+- Extract Facade function `Host key` (needed in next step)
+
+![Extract Facade function Host key](/pictures/FunctionHostKey.PNG)
+
+- Configure your `.env` file with your [Azure Container registry](https://azure.microsoft.com/en-us/services/container-registry/) as well as the Facade access URL and credentials. Those variables will be used by our [Azure IoT Edge solution template](/LoRaEngine/deployment.template.json)
 
 ```{bash}
 CONTAINER_REGISTRY_USERNAME=myregistryrocks
 CONTAINER_REGISTRY_PASSWORD=ghjGD5jrK6667
 CONTAINER_REGISTRY_ADDRESS=myregistryrocks.azurecr.io
 FACADE_SERVER_URL=https://lorafacadefunctionrocks.azurewebsites.net/api/
-FACADE_AUTH_CODE=gkjhFGHFGGjhhg5645674==
+FACADE_AUTH_CODE=yourFunctionHostKey
 ```
 
 ### SetUp concentrator with Azure IoT Edge
@@ -64,13 +68,13 @@ The `lora_pkt_fwd` binary has to be copied `LoraPktFwdFiltermodule`directory.
 
 We will use [Azure IoT Edge for Visual Studio Code](https://marketplace.visualstudio.com/items?itemName=vsciot-vscode.azure-iot-edge) extension to build, push and deploy our solution.
 
-First, build an push the solution by right click [deployment.template.json](https://github.com/Skraelinger/AzureIoT_LoRaWan_StarterKit/blob/master/LoRaEngine/deployment.template.json) and select `Build and Push IoT Edge Solution`
+First, build an push the solution by right click [deployment.template.json](/LoRaEngine/deployment.template.json) and select `Build and Push IoT Edge Solution`
 
-![VSCode: Build and push edge solution](../pictures/CreateEdgeSolution.PNG)
+![VSCode: Build and push edge solution](/pictures/CreateEdgeSolution.PNG)
 
 After that you can push the solution to your IoT Edge device by right clicking on the device and select `Create Deployment for single device`
 
-![VSCode: Deploy edge solution](../pictures/DeployEdge.PNG)
+![VSCode: Deploy edge solution](/pictures/DeployEdge.PNG)
 
 ### Provision LoRa leaf device
 
@@ -183,7 +187,7 @@ float getTemp()
 }
 ```
 
-To provisioning a device in Azure IoT Hub with these identifiers and capable to [decode](https://github.com/Skraelinger/AzureIoT_LoRaWan_StarterKit/blob/master/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoRaWan.NetworkServer/LoraDecoders.cs) temperature payload into Json you have to create a device with:
+To provisioning a device in Azure IoT Hub with these identifiers and capable to [decode](/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoRaWan.NetworkServer/LoraDecoders.cs) temperature payload into Json you have to create a device with:
 
 Device Id: `47AAC86800430010` and Device Twin:
 
@@ -195,9 +199,9 @@ Device Id: `47AAC86800430010` and Device Twin:
 }
 ```
 
-![Create device in Azure IoT Hub](../pictures/CreateDevice.PNG)
+![Create device in Azure IoT Hub](/pictures/CreateDevice.PNG)
 
-![Set device twin in Azure IoT Hub](../pictures/DeviceTwin.PNG)
+![Set device twin in Azure IoT Hub](/pictures/DeviceTwin.PNG)
 
 ### Device to Cloud and Cloud to Device messaging in action
 
