@@ -6,7 +6,7 @@ A **.NET Standard 2.0** solution with the following projects:
   - **LoRaWanPktFwdModule** packages the network forwarder into an IoT Edge compatible docker container. See https://github.com/Lora-net/packet_forwarder and https://github.com/Lora-net/lora_gateway.
   - **LoRaWanNetworkSrvModule** - is the LoRaWAN network server implementation.
 - **LoraKeysManagerFacade** - An Azure function handling device provisioning (e.g. LoRa network join, OTAA) with Azure IoT Hub as persistence layer.
-- **LoRaDevTools** - library for dev tools
+- **LoRaDevTools** - library for dev tools (git submodule)
 
 ## Getting started with: Build and deploy LoRaEngine
 
@@ -54,7 +54,7 @@ FACADE_AUTH_CODE=yourFunctionHostKey
 
 ### SetUp concentrator with Azure IoT Edge
 
-- Note: if your LoRa chip set is connected by SPI bus please ensure that it is enabled, e.g. on [Raspberry Pi](https://www.raspberrypi.org/documentation/hardware/raspberrypi/spi/README.md).
+- Note: if your LoRa chip set is connected by SPI bus don't forget to [enable it](https://www.makeuseof.com/tag/enable-spi-i2c-raspberry-pi/), (You need to restart your pi).
 
 - Build network packet forwarder
 

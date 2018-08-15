@@ -29,7 +29,7 @@ The code is organized into three sections:
 - **LoRaEngine** - a .NET Standard 2.0 solution with the following folders:
   - **modules** - Azure IoT Edge modules.
   - **LoraKeysManagerFacade** - An Azure function handling device provisioning (e.g. LoRa network join, OTAA) with Azure IoT Hub as persistence layer.
-  - **LoRaDevTools** - library for dev tools
+  - **LoRaDevTools** - library for dev tools (git submodule)
 - **Arduino** - Examples and references for LoRa Arduino based devices.
 - **EdgeVisualization** - an optional Azure IoT Edge module for visualizing LoRa packet flows inside IoT Edge. Example for local IoT Edge message processing.
 - **Template** - Contain code useful for the "deploy to Azure button"
