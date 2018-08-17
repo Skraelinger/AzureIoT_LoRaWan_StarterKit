@@ -76,12 +76,11 @@ An Azure deployment template is available to deploy all the required Azure infra
 If you'd rather deploy it manually please jump directly into the [do it yourself section](/LoRaEngine).
 
 ### Prequisites & Limitations
-Currently, the template work only with ARM based gateways, like a Raspberry Pi, support for x86 will be added in a future release.
+Currently, the template work only with ARM based gateways, like a Raspberry Pi, support for x86 will be added in a future release. (you could actually already deploy it for intel by following the instructions in the [do it yourself section](/LoraEngine))
 The template was tested to work on the following gateway types:
-* Seeduino LoRaWan
+* [Seeed Studio LoRa LoRaWAN Gateway - 868MHz Kit with Raspberry Pi 3](https://www.seeedstudio.com/LoRa-LoRaWAN-Gateway-868MHz-Kit-with-Raspberry-Pi-3-p-2823.html)
 
-The Demo code for Arduino is built only for specific sensors.
-Additionally all the limitations described under the chapter [known contraints](##Known-constraints) apply here as well.
+The LoRa device demo code for Arduino is built only for Seeduino LoRaWan board and was not test with other Arduino LoRa boards.
 
 ### Deployed Azure Infrastructure
 The template will deploy in your Azure subscription the Following ressources:
@@ -114,7 +113,7 @@ The template will deploy in your Azure subscription the Following ressources:
 By using the `docker ps` command, you should see the Edge containers being deployed on your local gateway. You can now try one of the samples in the [Arduino folder](/Arduino) to see LoRa messages being sent to the cloud.
 
 ### What does the template do?
-The template provision an IoT Hub with a [packet forwarder](https://github.com/Lora-net/packet_forwarder) and gateway module already preconfigured to work out of the box. As soon as you connect your IoT Edge device in point 4 above. Those will be pushed on your device. You can find all relevant code & more information [here](/Template).
+The template provision an IoT Hub with a [packet forwarder](https://github.com/Lora-net/packet_forwarder) and a network server module already preconfigured to work out of the box. As soon as you connect your IoT Edge device in point 4 above, those will be pushed on your device. You can find template definition and Edge deployment specification [here](/Template).
 
 ## Customize the solution & Deep dive
 
