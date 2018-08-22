@@ -93,6 +93,8 @@ namespace CreateDeviceFunction
             bool deployEndDevice = false;
             Boolean.TryParse(Environment.GetEnvironmentVariable("DEPLOY_DEVICE"),out deployEndDevice);
 
+            //This section will get deployed ONLY if the user selected the "deploy end device" options.
+            //Information in this if clause, is for demo purpose only and should not be used for productive workloads.
             if (deployEndDevice)
             {
                 Device endDevice = new Device("47AAC86800430028");
