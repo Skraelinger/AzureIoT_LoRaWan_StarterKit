@@ -1,1 +1,1 @@
-This project has been moved to https://github.com/Azure/iotedge-lorawan-starterkit .
+This project has moved to https://github.com/Azure/iotedge-lorawan-starterkit .
